@@ -1,3 +1,5 @@
+local script_version = 1.1
+
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
 local encoding = require 'encoding'
@@ -69,10 +71,9 @@ inicfg.save(cfg, "PravikHelper.ini")
 -- =========================
 -- ÀÂÒÎÎÁÍÎÂËÅÍÈÅ ÑÊÐÈÏÒÀ
 -- =========================
-local script_version = 1.0 
 -- ÇÀÌÅÍÈ ÝÒÈ ÑÑÛËÊÈ ÍÀ ÑÂÎÈ (RAW ññûëêè ñ GitHub)
-local update_info_url = "https://raw.githubusercontent.com/ÒÂÎÉ_ÍÈÊ/ÒÂÎÉ_ÐÅÏÎÇÈÒÎÐÈÉ/main/version.json"
-local script_url = "https://raw.githubusercontent.com/ÒÂÎÉ_ÍÈÊ/ÒÂÎÉ_ÐÅÏÎÇÈÒÎÐÈÉ/main/pravikhelper.lua"
+local update_info_url = "https://raw.githubusercontent.com/pravikhelper/pravikhelper/refs/heads/main/version.js"
+local script_url = "https://raw.githubusercontent.com/pravikhelper/pravikhelper/refs/heads/main/pravikhelper.lua"
 
 function checkUpdates()
     async_http_request(update_info_url, function(response_text)
@@ -1026,7 +1027,7 @@ imgui.OnFrame(
 	function() return main_window_state[0] or #toasts > 0 end,
     
 	function(player)
-        player.HideCursor = main_window_state[0]
+        player.HideCursor = not main_window_state[0]
         
         local current_time = os.clock()
         last_frame_time = current_time
