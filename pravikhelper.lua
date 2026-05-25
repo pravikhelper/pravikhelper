@@ -1,4 +1,4 @@
-local script_version = 1.9
+local script_version = 2.0
 
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
@@ -197,17 +197,19 @@ local reconnect_thread = nil
 local last_tg_alert_time = 0
 
 -- =========================
+-- =========================
 -- ѕ≈–≈ћ≈ЌЌџ≈ » Ћќ√» ј  јЋ№ ”Ћя“ќ–ј
 -- =========================
 local calc_window_state = imgui.new.bool(false)
 local calc_display = "0"
 local calc_history = ""
+local calc_history_log = {}
 local calc_prev_value = 0
 local calc_operation = ""
 local calc_needs_reset = false
-local font_btn = nil -- ƒобавь эту переменную в самый верх скрипта
-local calc_finished = false -- Ќовый флаг завершени€ вычислени€
+local calc_finished = false
 local font_large = nil
+local font_btn = nil
 
 local function calc_clear()
     calc_display = "0"
@@ -218,11 +220,7 @@ local function calc_clear()
     calc_finished = false
 end
 
-local calc_history_log = {} -- ћассив дл€ последних 5 примеров
-
 local function calc_calculate()
-    -- «јў»“ј: ≈сли мы нажали знак (*, +, /) и еще не ввели второе число,
-    -- просто игнорируем попытку посчитать (чтобы число не множилось само на себ€)
     if calc_operation == "" or calc_needs_reset then return end
     
     local curr = tonumber(calc_display) or 0
@@ -258,13 +256,11 @@ local function calc_calculate()
 end
 
 local function calc_press_number(num)
-    -- ≈сли мы начинаем писать после нажати€ "=", полностью сбрасываем историю
     if calc_finished then
         calc_history = ""
         calc_display = ""
         calc_finished = false
     end
-
     if calc_needs_reset then
         calc_display = ""
         calc_needs_reset = false
@@ -281,16 +277,13 @@ local function calc_press_number(num)
 end
 
 local function calc_press_op(op)
-    -- ‘» —: ≈сли мы уже нажали знак, но не вводили новое число, 
-    -- мы просто замен€ем операцию в истории (например, передумали и вместо + нажали -)
     if calc_needs_reset then
         calc_operation = op
         local prev_str = (calc_prev_value == math.floor(calc_prev_value)) and tostring(math.floor(calc_prev_value)) or tostring(calc_prev_value)
         calc_history = prev_str .. " " .. op
-        return -- ѕрерываем функцию, чтобы не считать лишний раз
+        return 
     end
-
-    -- ≈сли была прошла€ нерешенна€ операци€ (например 5 + 5 и мы жмем *), сначала считаем еЄ
+    
     if calc_operation ~= "" then
         calc_calculate()
         calc_finished = false 
@@ -1093,7 +1086,7 @@ local function RenderTabSpawn()
 end
 
 local function RenderTabUtils()
-    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"/vc - очередь на Vice-City\n/lift - вызвать лифт вверх\n/liftd - вызвать лифт вниз")
+    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"/vc - очередь на Vice-City\n/lift - вызвать лифт вверх\n/liftd - вызвать лифт вниз\n/calc - калькул€тор как на iphone 17 pro max 2tb")
 	imgui.Separator()
     
     if imgui.Checkbox(u8"ESC Bypass", bypass_esc_enabled) then saveConfig() end
@@ -1233,7 +1226,17 @@ imgui.OnFrame(
             imgui.SetNextWindowSize(imgui.ImVec2(630, 435), imgui.Cond.Always)
             imgui.SetNextWindowPos(imgui.ImVec2(sw / 2 - 315, sh / 2 - 220), imgui.Cond.FirstUseEver)
             
-            if imgui.Begin(u8"PravikHelper", main_window_state, imgui.WindowFlags.NoCollapse + imgui.WindowFlags.NoResize) then
+			-- ѕолучаем статус (res) и твой ID (myId)
+            local res, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
+            local window_title = "PravikHelper##MainWindow" -- «начение по умолчанию до загрузки сампа
+            
+            if res then
+                local myNick = sampGetPlayerNickname(myId) or "Player"
+                -- ‘ормируем нужный текст: "Nick_Name ID: 222" и пр€чем тег ##MainWindow
+                window_title = string.format("%s ID: %d##MainWindow", myNick, myId)
+            end
+
+            if imgui.Begin(u8(window_title), main_window_state, imgui.WindowFlags.NoCollapse + imgui.WindowFlags.NoResize) then
                 
                 imgui.BeginChild("left_pane", imgui.ImVec2(170, -30), true)
                 
@@ -1303,12 +1306,11 @@ imgui.OnFrame(
         -- =========================
         if calc_window_state[0] then
             
-			-- ”мна€ обработка клавиатуры 
+            -- Ќезависима€ обработка клавиатуры
             if not sampIsChatInputActive() and not sampIsDialogActive() and not isSampfuncsConsoleActive() and not imgui.GetIO().WantTextInput then
                 local shift = isKeyDown(vkeys.VK_SHIFT)
                 
                 for i = 0, 9 do
-                    -- «јў»“ј: Ѕлокируем ввод верхних цифр, если зажат Shift (чтобы Shift+8 не вводил восьмерку)
                     if (wasKeyPressed(vkeys.VK_0 + i) and not shift) or wasKeyPressed(vkeys.VK_NUMPAD0 + i) then 
                         calc_press_number(tostring(i)) 
                     end
@@ -1332,21 +1334,18 @@ imgui.OnFrame(
                 if shift and wasKeyPressed(56) then calc_press_op("*") end 
                 if wasKeyPressed(191) then calc_press_op("/") end 
                 
-                -- ѕоддержка кнопки "=" (и на Numpad Enter, и обычного Enter, и клавиши равно)
                 if wasKeyPressed(vkeys.VK_RETURN) or (not shift and wasKeyPressed(187)) then calc_calculate() end
-                
                 if wasKeyPressed(vkeys.VK_DECIMAL) or (not shift and wasKeyPressed(190)) then calc_press_number(".") end
             end
 
-            -- ј “”“ ƒјЋ№Ў≈ “¬ќ…  ќƒ ќ“–»—ќ¬ »:
+            -- Ќезависима€ отрисовка UI
             imgui.SetNextWindowSize(imgui.ImVec2(340, 520), imgui.Cond.Always) 
             if imgui.Begin(u8" алькул€тор##Calc", calc_window_state, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoCollapse) then
-                -- ... тут дисплей, истори€ и отрисовка кнопок ...
                 
-				local window_width = imgui.GetWindowWidth()
+                local window_width = imgui.GetWindowWidth()
                 local cur_y = imgui.GetCursorPosY()
 
-                -- 1.  нопка "»стори€" слева
+                -- »стори€ слева
                 imgui.SetCursorPos(imgui.ImVec2(15, cur_y))
                 imgui.TextColored(imgui.ImVec4(0.7, 0.7, 0.7, 1.0), u8"[»стори€]")
                 if imgui.IsItemHovered() then
@@ -1361,33 +1360,30 @@ imgui.OnFrame(
                     imgui.EndTooltip()
                 end
                 
-                -- 2. ¬ывод истории текущего действи€ (справа)
+                -- »стори€ текущего действи€ (справа)
                 local history_width = imgui.CalcTextSize(calc_history).x
                 imgui.SetCursorPos(imgui.ImVec2(window_width - history_width - 15, cur_y))
                 imgui.TextColored(imgui.ImVec4(0.5, 0.5, 0.5, 1.0), calc_history)
                 
-                -- —двигаем курсор ниже дл€ основного диспле€
                 imgui.SetCursorPosY(cur_y + 20)
 
-				-- 3. ¬ывод основного диспле€ (большой шрифт)
+                -- ќсновной дисплей
                 if font_large then imgui.PushFont(font_large) end
-                
                 local text_width = imgui.CalcTextSize(calc_display).x
                 imgui.SetCursorPosX(window_width - text_width - 15)
                 imgui.Text(calc_display)
-                
                 if font_large then imgui.PopFont() end
                 
                 imgui.Spacing()
                 imgui.Separator()
                 imgui.Spacing()
 
-                -- Ќовые размеры кнопок и отступов
-				local btn_w = 70      -- Ўирина кнопки (была 55)
-				local btn_h = 70      -- ¬ысота кнопки (была 55)
-				local btn_space = 12  -- ќтступ между кнопками (был 10)
+                local btn_w = 70
+                local btn_h = 70
+                local btn_space = 12
+                local offset_x = 12
                 
-				local function DrawCalcBtn(label, w, h, btn_type)
+                local function DrawCalcBtn(label, w, h, btn_type)
                     if btn_type == "op" then
                         imgui.PushStyleColor(imgui.Col.Button, imgui.ImVec4(0.9, 0.5, 0.1, 0.8))
                         imgui.PushStyleColor(imgui.Col.ButtonHovered, imgui.ImVec4(1.0, 0.6, 0.2, 1.0))
@@ -1402,7 +1398,6 @@ imgui.OnFrame(
                         imgui.PushStyleColor(imgui.Col.ButtonActive, imgui.ImVec4(0.15, 0.15, 0.15, 1.0))
                     end
 
-                    -- Ѕ≈«ќѕј—Ќџ… ¬џ«ќ¬ Ў–»‘“ј
                     if font_btn then imgui.PushFont(font_btn) end
                     local pressed = imgui.Button(label, imgui.ImVec2(w, h))
                     if font_btn then imgui.PopFont() end
@@ -1411,11 +1406,6 @@ imgui.OnFrame(
                     return pressed
                 end
 
-
-                -- ÷ентрируем сетку под новую ширину окна (280 - (55*4 + 10*3) = 30. ѕоловина от 30 = 15)
-                local offset_x = 12
-
--- –€д 1: AC, C, +/-, /
                 imgui.SetCursorPosX(offset_x)
                 if DrawCalcBtn("AC", btn_w, btn_h, "action") then calc_clear() end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("C", btn_w, btn_h, "action") then 
@@ -1430,28 +1420,24 @@ imgui.OnFrame(
                 end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("/", btn_w, btn_h, "op") then calc_press_op("/") end
 
-                -- –€д 2: 7, 8, 9, *
                 imgui.SetCursorPosX(offset_x)
                 if DrawCalcBtn("7", btn_w, btn_h, "num") then calc_press_number("7") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("8", btn_w, btn_h, "num") then calc_press_number("8") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("9", btn_w, btn_h, "num") then calc_press_number("9") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("*", btn_w, btn_h, "op") then calc_press_op("*") end
 
-                -- –€д 3: 4, 5, 6, -
                 imgui.SetCursorPosX(offset_x)
                 if DrawCalcBtn("4", btn_w, btn_h, "num") then calc_press_number("4") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("5", btn_w, btn_h, "num") then calc_press_number("5") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("6", btn_w, btn_h, "num") then calc_press_number("6") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("-", btn_w, btn_h, "op") then calc_press_op("-") end
 
-                -- –€д 4: 1, 2, 3, +
                 imgui.SetCursorPosX(offset_x)
                 if DrawCalcBtn("1", btn_w, btn_h, "num") then calc_press_number("1") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("2", btn_w, btn_h, "num") then calc_press_number("2") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("3", btn_w, btn_h, "num") then calc_press_number("3") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("+", btn_w, btn_h, "op") then calc_press_op("+") end
 
-                -- –€д 5: %, 0, ., =
                 imgui.SetCursorPosX(offset_x)
                 if DrawCalcBtn("%", btn_w, btn_h, "num") then 
                     calc_display = tostring((tonumber(calc_display) or 0) / 100)
@@ -1540,7 +1526,7 @@ function sampev.onServerMessage(color, text)
 
     if is_radio then
         if hex_color == "2db043" or text:lower():find("{2db043}") then
-            if text:find("[—с][“т][–р][ќо][…й]") or text:find("[я€][¬в][ к][”у]") or text:find("[¬в][џы][√г]") or text:find("[Ћл][≈е][ к][÷ц][»и][я€]") or text:find("[—с][”у][ƒд][≈е][Ѕб][Ќн][ја][я€]") or text:find("[¬в][Ќн][»и][ћм][ја][Ќн][»и][≈е]") or text:find("[—с][”у][ƒд]") then
+            if text:find("[—с][“т][–р][ќо][…й]") or text:find("[я€][¬в][ к][”у]") or text:find("[¬в][џы][√г][ќо][¬в][ќо][–р]") or text:find("[Ћл][≈е][ к][÷ц][»и][я€]") or text:find("[—с][”у][ƒд][≈е][Ѕб][Ќн][ја][я€]") or text:find("[¬в][Ќн][»и][ћм][ја][Ќн][»и][≈е]") or text:find("[—с][”у][ƒд]") then
                 if os.clock() - last_tg_alert_time > 10.0 then 
                     last_tg_alert_time = os.clock() 
                     lua_thread.create(function() sendToTelegram(text) end)
