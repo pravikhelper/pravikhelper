@@ -1,4 +1,4 @@
-local script_version = 1.5
+local script_version = 1.6
 
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
@@ -857,7 +857,7 @@ local function RenderTabSpawn()
         imgui.SameLine()
         imgui.PushItemWidth(150)
         local pass_flags = show_password_toggle and 0 or imgui.InputTextFlags.Password
-        if imgui.InputTextWithHint(u8"Пароль##loginpass", u8"Пароль", autologin_password, ffi.sizeof(autologin_password), pass_flags) then saveConfig() end
+        if imgui.InputTextWithHint(u8"##loginpass", u8"Пароль", autologin_password, ffi.sizeof(autologin_password), pass_flags) then saveConfig() end
         imgui.PopItemWidth()
         imgui.SameLine()
         if imgui.Button(show_password_toggle and u8"Скрыть" or u8"Показать") then show_password_toggle = not show_password_toggle end
@@ -910,7 +910,7 @@ local function RenderTabUtils()
     
     if imgui.Checkbox(u8"ESC Bypass", bypass_esc_enabled) then saveConfig() end
     imgui.SameLine()
-    imgui.TextDisabled("(?)")
+    imgui.TextDisabled("?")
     if imgui.IsItemHovered() then
         imgui.BeginTooltip() 
         imgui.PushTextWrapPos(350.0) 
@@ -953,12 +953,21 @@ local function RenderTabTelegram()
     imgui.Spacing()
     
     if imgui.Checkbox(u8"Telegram уведомления", tg_enabled) then saveConfig() end
+	imgui.SameLine()
+        imgui.TextDisabled("?")
+        if imgui.IsItemHovered() then
+            imgui.BeginTooltip() 
+            imgui.PushTextWrapPos(350.0) 
+            imgui.TextUnformatted(u8"@botfather > Создать бота > Копируем токен\nВставляем токен вниз и пишем боту в лс /start")
+            imgui.PopTextWrapPos()
+            imgui.EndTooltip() 
+        end
 	
     if tg_enabled[0] then
         imgui.SameLine(250)
         if imgui.Checkbox(u8"Зеркало API", tg_custom_api_enabled) then saveConfig() end
         imgui.SameLine()
-        imgui.TextDisabled("(?)")
+        imgui.TextDisabled("?")
         if imgui.IsItemHovered() then
             imgui.BeginTooltip() 
             imgui.PushTextWrapPos(350.0) 
