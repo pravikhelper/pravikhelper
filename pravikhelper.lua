@@ -1,4 +1,4 @@
-local script_version = 1.6
+local script_version = 1.7
 
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
@@ -176,6 +176,106 @@ local is_polling = false
 local reconnect_thread = nil
 local last_tg_alert_time = 0
 
+-- =========================
+-- ПЕРЕМЕННЫЕ И ЛОГИКА КАЛЬКУЛЯТОРА
+-- =========================
+local calc_window_state = imgui.new.bool(false)
+local calc_display = "0"
+local calc_history = ""
+local calc_prev_value = 0
+local calc_operation = ""
+local calc_needs_reset = false
+local font_btn = nil -- Добавь эту переменную в самый верх скрипта
+local calc_finished = false -- Новый флаг завершения вычисления
+local font_large = nil
+
+local function calc_clear()
+    calc_display = "0"
+    calc_history = ""
+    calc_prev_value = 0
+    calc_operation = ""
+    calc_needs_reset = false
+    calc_finished = false
+end
+
+local calc_history_log = {} -- Массив для последних 5 примеров
+
+local function calc_calculate()
+    if calc_operation == "" then return end
+    local curr = tonumber(calc_display) or 0
+    local result = 0
+    
+    if calc_operation == "+" then result = calc_prev_value + curr
+    elseif calc_operation == "-" then result = calc_prev_value - curr
+    elseif calc_operation == "*" then result = calc_prev_value * curr
+    elseif calc_operation == "/" then
+        if curr == 0 then result = 0 else result = calc_prev_value / curr end
+    end
+    
+    local prev_str = (calc_prev_value == math.floor(calc_prev_value)) and tostring(math.floor(calc_prev_value)) or tostring(calc_prev_value)
+    local curr_str = (curr == math.floor(curr)) and tostring(math.floor(curr)) or tostring(curr)
+    
+    calc_history = prev_str .. " " .. calc_operation .. " " .. curr_str .. " ="
+    
+    if result == math.floor(result) then
+        calc_display = tostring(math.floor(result))
+    else
+        calc_display = tostring(result)
+    end
+    
+    -- Записываем в лог полностью готовый пример
+    local full_eq = calc_history .. " " .. calc_display
+    table.insert(calc_history_log, full_eq)
+    if #calc_history_log > 5 then
+        table.remove(calc_history_log, 1) -- Удаляем самый старый, если их больше 5
+    end
+    
+    calc_operation = ""
+    calc_needs_reset = true
+    calc_finished = true
+end
+
+local function calc_press_number(num)
+    -- Если мы начинаем писать после нажатия "=", полностью сбрасываем историю
+    if calc_finished then
+        calc_history = ""
+        calc_display = ""
+        calc_finished = false
+    end
+
+    if calc_needs_reset then
+        calc_display = ""
+        calc_needs_reset = false
+    end
+    
+    if calc_display == "0" and num ~= "." then
+        calc_display = num
+    else
+        if num == "." and calc_display:find("%.") then return end
+        if #calc_display < 12 then 
+            calc_display = calc_display .. num
+        end
+    end
+end
+
+local function calc_press_op(op)
+    -- Если мы жмем знак после "=", продолжаем считать с текущим результатом
+    calc_finished = false 
+    
+    if calc_operation ~= "" and not calc_needs_reset then
+        calc_calculate()
+    end
+    calc_prev_value = tonumber(calc_display) or 0
+    calc_operation = op
+    
+    local prev_str = (calc_prev_value == math.floor(calc_prev_value)) and tostring(math.floor(calc_prev_value)) or tostring(calc_prev_value)
+    calc_history = prev_str .. " " .. op
+    
+    calc_needs_reset = true
+end
+
+
+
 local vice_api = "https://api.arizona-five.com/launcher/servers"
 local toasts = {}
 
@@ -272,6 +372,15 @@ end
 
 imgui.OnInitialize(function()
     apply_custom_style()
+    
+    -- Загружаем большой шрифт для дисплея калькулятора (размер 35)
+    local config = imgui.ImFontConfig()
+    local glyph_ranges = imgui.GetIO().Fonts:GetGlyphRangesCyrillic()
+	-- Передаем nil вместо config, чтобы избежать краша памяти
+    local font_path = os.getenv("WINDIR") .. "\\Fonts\\arial.ttf"
+    
+    font_large = imgui.GetIO().Fonts:AddFontFromFileTTF(font_path, 35.0, nil, glyph_ranges)
+    font_btn = imgui.GetIO().Fonts:AddFontFromFileTTF(font_path, 22.0, nil, glyph_ranges)
 end)
 
 function getKeyName(id)
@@ -506,13 +615,14 @@ end
 
 function onWindowMessage(msg, wparam, lparam)
     if msg == 0x0100 or msg == 0x0101 then
-        if wparam == vkeys.VK_ESCAPE and main_window_state[0] then
+        if wparam == vkeys.VK_ESCAPE and (main_window_state[0] or calc_window_state[0]) then
             if sampIsChatInputActive() or sampIsDialogActive() or isSampfuncsConsoleActive() then
                 return
             end
             
             if msg == 0x0100 then
                 main_window_state[0] = false
+                calc_window_state[0] = false -- Добавили закрытие калькулятора
             end
             
             consumeWindowMessage(true, true)
@@ -534,6 +644,10 @@ function main()
 	
     sampRegisterChatCommand("pravik", function() 
         main_window_state[0] = not main_window_state[0] 
+    end)
+	
+	sampRegisterChatCommand("calc", function() 
+        calc_window_state[0] = not calc_window_state[0] 
     end)
 
     sampRegisterChatCommand('vc', function()
@@ -567,7 +681,7 @@ function main()
         sampSendChat("/me вызвал лифт")
     end)
 
-    sampRegisterChatCommand("pop", function()
+    sampRegisterChatCommand("animka", function()
         cmd_pop()
     end)
 
@@ -850,6 +964,7 @@ end
 
 local function RenderTabSpawn()
     imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> АВТО-ВХОД, ФОРМА И СПАВН")
+	imgui.TextColored(imgui.ImVec4(0.70, 0, 0, 2.00), u8"РАБОТАЕТ ТОЛЬКО С СТАРОЙ АВТОРИЗАЦИЕЙ")
     imgui.Spacing()
     if imgui.Checkbox(u8"Авто-логин", autologin_enabled) then saveConfig() end
     
@@ -905,7 +1020,7 @@ local function RenderTabSpawn()
 end
 
 local function RenderTabUtils()
-    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"/vc - очередь на Vice-City\n/lift - вызвать лифт вверх\n/liftd - вызвать лифт вниз\n/pop - секретная анимка")
+    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"/vc - очередь на Vice-City\n/lift - вызвать лифт вверх\n/liftd - вызвать лифт вниз")
 	imgui.Separator()
     
     if imgui.Checkbox(u8"ESC Bypass", bypass_esc_enabled) then saveConfig() end
@@ -952,7 +1067,7 @@ local function RenderTabTelegram()
     imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> ИНТЕГРАЦИЯ TELEGRAM")
     imgui.Spacing()
     
-    if imgui.Checkbox(u8"Telegram уведомления", tg_enabled) then saveConfig() end
+    if imgui.Checkbox(u8"Telegram", tg_enabled) then saveConfig() end
 	imgui.SameLine()
         imgui.TextDisabled("?")
         if imgui.IsItemHovered() then
@@ -1031,10 +1146,9 @@ function cmd_pop()
 end
 
 imgui.OnFrame(
-	function() return main_window_state[0] or #toasts > 0 end,
-    
-	function(player)
-        player.HideCursor = not main_window_state[0]
+    function() return main_window_state[0] or calc_window_state[0] or #toasts > 0 end,
+    function(player)
+        player.HideCursor = not (main_window_state[0] or calc_window_state[0])
         
         local current_time = os.clock()
         last_frame_time = current_time
@@ -1108,6 +1222,123 @@ imgui.OnFrame(
                     if secret_click_count >= 3 then show_whitelist = not show_whitelist; secret_click_count = 0 end
                 end
                 
+                imgui.End()
+            end
+        end
+		-- =========================
+        -- ОКНО КАЛЬКУЛЯТОРА
+        -- =========================
+        if calc_window_state[0] then
+            -- Увеличенный размер окна
+            imgui.SetNextWindowSize(imgui.ImVec2(340, 520), imgui.Cond.Always)
+            if imgui.Begin(u8"Калькулятор##Calc", calc_window_state, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoCollapse) then
+                
+				local window_width = imgui.GetWindowWidth()
+                local cur_y = imgui.GetCursorPosY()
+
+                -- 1. Кнопка "История" слева
+                imgui.SetCursorPos(imgui.ImVec2(15, cur_y))
+                imgui.TextColored(imgui.ImVec4(0.7, 0.7, 0.7, 1.0), u8"[История]")
+                if imgui.IsItemHovered() then
+                    imgui.BeginTooltip()
+                    if #calc_history_log == 0 then
+                        imgui.Text(u8"История пуста")
+                    else
+                        for _, eq in ipairs(calc_history_log) do
+                            imgui.Text(eq)
+                        end
+                    end
+                    imgui.EndTooltip()
+                end
+                
+                -- 2. Вывод истории текущего действия (справа)
+                local history_width = imgui.CalcTextSize(calc_history).x
+                imgui.SetCursorPos(imgui.ImVec2(window_width - history_width - 15, cur_y))
+                imgui.TextColored(imgui.ImVec4(0.5, 0.5, 0.5, 1.0), calc_history)
+                
+                -- Сдвигаем курсор ниже для основного дисплея
+                imgui.SetCursorPosY(cur_y + 20)
+
+				-- 3. Вывод основного дисплея (большой шрифт)
+                if font_large then imgui.PushFont(font_large) end
+                
+                local text_width = imgui.CalcTextSize(calc_display).x
+                imgui.SetCursorPosX(window_width - text_width - 15)
+                imgui.Text(calc_display)
+                
+                if font_large then imgui.PopFont() end
+                
+                imgui.Spacing()
+                imgui.Separator()
+                imgui.Spacing()
+
+                -- Новые размеры кнопок и отступов
+				local btn_w = 70      -- Ширина кнопки (была 55)
+				local btn_h = 70      -- Высота кнопки (была 55)
+				local btn_space = 12  -- Отступ между кнопками (был 10)
+                
+				local function DrawCalcBtn(label, w, h, btn_type)
+                    if btn_type == "op" then
+                        imgui.PushStyleColor(imgui.Col.Button, imgui.ImVec4(0.9, 0.5, 0.1, 0.8))
+                        imgui.PushStyleColor(imgui.Col.ButtonHovered, imgui.ImVec4(1.0, 0.6, 0.2, 1.0))
+                        imgui.PushStyleColor(imgui.Col.ButtonActive, imgui.ImVec4(0.8, 0.4, 0.0, 1.0))
+                    elseif btn_type == "action" then
+                        imgui.PushStyleColor(imgui.Col.Button, imgui.ImVec4(0.4, 0.4, 0.4, 0.8))
+                        imgui.PushStyleColor(imgui.Col.ButtonHovered, imgui.ImVec4(0.5, 0.5, 0.5, 1.0))
+                        imgui.PushStyleColor(imgui.Col.ButtonActive, imgui.ImVec4(0.3, 0.3, 0.3, 1.0))
+                    else
+                        imgui.PushStyleColor(imgui.Col.Button, imgui.ImVec4(0.25, 0.25, 0.25, 0.8))
+                        imgui.PushStyleColor(imgui.Col.ButtonHovered, imgui.ImVec4(0.35, 0.35, 0.35, 1.0))
+                        imgui.PushStyleColor(imgui.Col.ButtonActive, imgui.ImVec4(0.15, 0.15, 0.15, 1.0))
+                    end
+
+                    -- БЕЗОПАСНЫЙ ВЫЗОВ ШРИФТА
+                    if font_btn then imgui.PushFont(font_btn) end
+                    local pressed = imgui.Button(label, imgui.ImVec2(w, h))
+                    if font_btn then imgui.PopFont() end
+
+                    imgui.PopStyleColor(3)
+                    return pressed
+                end
+
+
+                -- Центрируем сетку под новую ширину окна (280 - (55*4 + 10*3) = 30. Половина от 30 = 15)
+                local offset_x = 12
+
+                imgui.SetCursorPosX(offset_x)
+                if DrawCalcBtn("AC", btn_w, btn_h, "action") then calc_clear() end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("+/-", btn_w, btn_h, "action") then 
+                    if calc_display:sub(1,1) == "-" then calc_display = calc_display:sub(2) 
+                    elseif calc_display ~= "0" then calc_display = "-" .. calc_display end
+                end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("%", btn_w, btn_h, "action") then 
+                    calc_display = tostring((tonumber(calc_display) or 0) / 100)
+                end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("/", btn_w, btn_h, "op") then calc_press_op("/") end
+
+                imgui.SetCursorPosX(offset_x)
+                if DrawCalcBtn("7", btn_w, btn_h, "num") then calc_press_number("7") end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("8", btn_w, btn_h, "num") then calc_press_number("8") end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("9", btn_w, btn_h, "num") then calc_press_number("9") end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("*", btn_w, btn_h, "op") then calc_press_op("*") end
+
+                imgui.SetCursorPosX(offset_x)
+                if DrawCalcBtn("4", btn_w, btn_h, "num") then calc_press_number("4") end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("5", btn_w, btn_h, "num") then calc_press_number("5") end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("6", btn_w, btn_h, "num") then calc_press_number("6") end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("-", btn_w, btn_h, "op") then calc_press_op("-") end
+
+                imgui.SetCursorPosX(offset_x)
+                if DrawCalcBtn("1", btn_w, btn_h, "num") then calc_press_number("1") end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("2", btn_w, btn_h, "num") then calc_press_number("2") end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("3", btn_w, btn_h, "num") then calc_press_number("3") end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("+", btn_w, btn_h, "op") then calc_press_op("+") end
+
+                imgui.SetCursorPosX(offset_x)
+                if DrawCalcBtn("0", btn_w * 2 + btn_space, btn_h, "num") then calc_press_number("0") end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn(".", btn_w, btn_h, "num") then calc_press_number(".") end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("=", btn_w, btn_h, "op") then calc_calculate() end
+
                 imgui.End()
             end
         end
