@@ -1,4 +1,4 @@
-local script_version = 1.7
+local script_version = 1.8
 
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
@@ -71,7 +71,6 @@ inicfg.save(cfg, "PravikHelper.ini")
 -- =========================
 -- АВТООБНОВЛЕНИЕ СКРИПТА
 -- =========================
--- ЗАМЕНИ ЭТИ ССЫЛКИ НА СВОИ (RAW ссылки с GitHub)
 local update_info_url = "https://raw.githubusercontent.com/pravikhelper/pravikhelper/refs/heads/main/version.json"
 local script_url = "https://raw.githubusercontent.com/pravikhelper/pravikhelper/refs/heads/main/pravikhelper.lua"
 
@@ -82,11 +81,35 @@ function checkUpdates()
             if ok and data and data.version then
                 if tonumber(data.version) > script_version then
                     sampAddChatMessage("{555555}PravikHelper: {777777}Найдено обновление! Скачиваю...", -1)
-                    downloadUrlToFile(script_url, thisScript().path, function(id, status, p1, p2)
+                    
+                    -- Формируем жесткий и правильный путь для файла
+                    local correct_filename = "pravikhelper.lua"
+                    local correct_path = getWorkingDirectory() .. "\\" .. correct_filename
+                    local current_path = thisScript().path
+                    
+                    -- Скачиваем файл по правильному пути, игнорируя текущее название скрипта
+                    downloadUrlToFile(script_url, correct_path, function(id, status, p1, p2)
                         if status == 58 then 
-							sampAddChatMessage("{555555}PravikHelper: {777777}Обновление успешно загружено!", -1)
-							sampAddChatMessage("{555555}PravikHelper: {777777}Перезагружаю скрипт...", -1)
-                            thisScript():reload()
+                            sampAddChatMessage("{555555}PravikHelper: {777777}Обновление успешно загружено!", -1)
+                            
+                            -- Проверяем, запущено ли обновление с правильным именем
+                            if not current_path:lower():find("pravikhelper%.lua$") then
+                                -- Вытаскиваем кривое имя файла для красивого вывода в чат
+                                local bad_name = current_path:match("\\([^\\]+)$") or "неизвестно"
+                                sampAddChatMessage("{555555}PravikHelper: {777777}Удаляю кривой дубликат файла (" .. bad_name .. ")", -1)
+                                
+                                -- Удаляем старый файл (например, pravikhelper (5).lua)
+                                os.remove(current_path)
+                                
+                                -- Загружаем новый чистый pravikhelper.lua
+                                script.load(correct_path)
+                                
+                                -- Убиваем текущий (старый) скрипт в памяти
+                                thisScript():unload()
+                            else
+                                sampAddChatMessage("{555555}PravikHelper: {777777}Перезагружаю скрипт...", -1)
+                                thisScript():reload()
+                            end
                         elseif status == 73 then 
                             addToast(u8"Ошибка скачивания обновления", 3)
                         end
