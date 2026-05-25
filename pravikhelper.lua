@@ -1,4 +1,4 @@
-local script_version = 1.2
+local script_version = 1.5
 
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
@@ -81,11 +81,11 @@ function checkUpdates()
             local ok, data = pcall(decodeJson, response_text)
             if ok and data and data.version then
                 if tonumber(data.version) > script_version then
-                    sampAddChatMessage("{666666}PravikHelper: {333333}Найдено обновление! Скачиваю...", -1)
+                    sampAddChatMessage("{555555}PravikHelper: {777777}Найдено обновление! Скачиваю...", -1)
                     downloadUrlToFile(script_url, thisScript().path, function(id, status, p1, p2)
                         if status == 58 then 
-							sampAddChatMessage("{666666}PravikHelper: {333333}Обновление успешно загружено!", -1)
-							sampAddChatMessage("{666666}PravikHelper: {333333}Перезагружаю скрипт...", -1)
+							sampAddChatMessage("{555555}PravikHelper: {777777}Обновление успешно загружено!", -1)
+							sampAddChatMessage("{555555}PravikHelper: {777777}Перезагружаю скрипт...", -1)
                             thisScript():reload()
                         elseif status == 73 then 
                             addToast(u8"Ошибка скачивания обновления", 3)
