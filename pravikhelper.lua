@@ -1,4 +1,4 @@
-local script_version = 1.8
+local script_version = 1.9
 
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
@@ -94,9 +94,6 @@ function checkUpdates()
                             
                             -- Проверяем, запущено ли обновление с правильным именем
                             if not current_path:lower():find("pravikhelper%.lua$") then
-                                -- Вытаскиваем кривое имя файла для красивого вывода в чат
-                                local bad_name = current_path:match("\\([^\\]+)$") or "неизвестно"
-                                sampAddChatMessage("{555555}PravikHelper: {777777}Удаляю кривой дубликат файла (" .. bad_name .. ")", -1)
                                 
                                 -- Удаляем старый файл (например, pravikhelper (5).lua)
                                 os.remove(current_path)
@@ -224,7 +221,10 @@ end
 local calc_history_log = {} -- Массив для последних 5 примеров
 
 local function calc_calculate()
-    if calc_operation == "" then return end
+    -- ЗАЩИТА: Если мы нажали знак (*, +, /) и еще не ввели второе число,
+    -- просто игнорируем попытку посчитать (чтобы число не множилось само на себя)
+    if calc_operation == "" or calc_needs_reset then return end
+    
     local curr = tonumber(calc_display) or 0
     local result = 0
     
@@ -246,11 +246,10 @@ local function calc_calculate()
         calc_display = tostring(result)
     end
     
-    -- Записываем в лог полностью готовый пример
     local full_eq = calc_history .. " " .. calc_display
     table.insert(calc_history_log, full_eq)
     if #calc_history_log > 5 then
-        table.remove(calc_history_log, 1) -- Удаляем самый старый, если их больше 5
+        table.remove(calc_history_log, 1)
     end
     
     calc_operation = ""
@@ -282,12 +281,21 @@ local function calc_press_number(num)
 end
 
 local function calc_press_op(op)
-    -- Если мы жмем знак после "=", продолжаем считать с текущим результатом
-    calc_finished = false 
-    
-    if calc_operation ~= "" and not calc_needs_reset then
-        calc_calculate()
+    -- ФИКС: Если мы уже нажали знак, но не вводили новое число, 
+    -- мы просто заменяем операцию в истории (например, передумали и вместо + нажали -)
+    if calc_needs_reset then
+        calc_operation = op
+        local prev_str = (calc_prev_value == math.floor(calc_prev_value)) and tostring(math.floor(calc_prev_value)) or tostring(calc_prev_value)
+        calc_history = prev_str .. " " .. op
+        return -- Прерываем функцию, чтобы не считать лишний раз
     end
+
+    -- Если была прошлая нерешенная операция (например 5 + 5 и мы жмем *), сначала считаем её
+    if calc_operation ~= "" then
+        calc_calculate()
+        calc_finished = false 
+    end
+    
     calc_prev_value = tonumber(calc_display) or 0
     calc_operation = op
     
@@ -295,6 +303,7 @@ local function calc_press_op(op)
     calc_history = prev_str .. " " .. op
     
     calc_needs_reset = true
+    calc_finished = false
 end
 
 
@@ -659,6 +668,47 @@ end
 function main()
     if not isSampLoaded() or not isSampfuncsLoaded() then return end
     repeat wait(0) until isSampAvailable()
+	
+	-- =========================
+        -- КЛАВИАТУРА КАЛЬКУЛЯТОРА
+        -- =========================
+        if calc_window_state[0] and not sampIsChatInputActive() and not sampIsDialogActive() and not isSampfuncsConsoleActive() then
+            -- Цифры 0-9 (Numpad и основная)
+            for i = 0, 9 do
+                if wasKeyPressed(vkeys.VK_0 + i) or wasKeyPressed(vkeys.VK_NUMPAD0 + i) then 
+                    calc_press_number(tostring(i)) 
+                end
+            end
+            
+            -- Backspace (Стереть 1 цифру)
+            if wasKeyPressed(vkeys.VK_BACK) then
+                if not calc_needs_reset and not calc_finished and #calc_display > 0 and calc_display ~= "0" then
+                    calc_display = calc_display:sub(1, -2)
+                    if calc_display == "" or calc_display == "-" then calc_display = "0" end
+                end
+            end
+            
+            -- Delete (Очистка AC)
+            if wasKeyPressed(vkeys.VK_DELETE) then calc_clear() end
+            
+            -- Операторы (Numpad)
+            if wasKeyPressed(vkeys.VK_ADD) then calc_press_op("+") end
+            if wasKeyPressed(vkeys.VK_SUBTRACT) then calc_press_op("-") end
+            if wasKeyPressed(vkeys.VK_MULTIPLY) then calc_press_op("*") end
+            if wasKeyPressed(vkeys.VK_DIVIDE) then calc_press_op("/") end
+            
+            -- Операторы (Основная клавиатура)
+            if isKeyDown(vkeys.VK_SHIFT) and wasKeyPressed(187) then calc_press_op("+") end -- Shift + "="
+            if not isKeyDown(vkeys.VK_SHIFT) and wasKeyPressed(189) then calc_press_op("-") end -- "-"
+            if isKeyDown(vkeys.VK_SHIFT) and wasKeyPressed(56) then calc_press_op("*") end -- Shift + "8"
+            if wasKeyPressed(191) then calc_press_op("/") end -- Слэш "/"
+            
+            -- Равно (Enter)
+            if wasKeyPressed(vkeys.VK_RETURN) then calc_calculate() end
+            
+            -- Точка (Numpad и основная)
+            if wasKeyPressed(vkeys.VK_DECIMAL) or wasKeyPressed(190) then calc_press_number(".") end
+        end
 
     math.randomseed(os.time())
     
@@ -1248,13 +1298,50 @@ imgui.OnFrame(
                 imgui.End()
             end
         end
-		-- =========================
+-- =========================
         -- ОКНО КАЛЬКУЛЯТОРА
         -- =========================
         if calc_window_state[0] then
-            -- Увеличенный размер окна
-            imgui.SetNextWindowSize(imgui.ImVec2(340, 520), imgui.Cond.Always)
+            
+			-- Умная обработка клавиатуры 
+            if not sampIsChatInputActive() and not sampIsDialogActive() and not isSampfuncsConsoleActive() and not imgui.GetIO().WantTextInput then
+                local shift = isKeyDown(vkeys.VK_SHIFT)
+                
+                for i = 0, 9 do
+                    -- ЗАЩИТА: Блокируем ввод верхних цифр, если зажат Shift (чтобы Shift+8 не вводил восьмерку)
+                    if (wasKeyPressed(vkeys.VK_0 + i) and not shift) or wasKeyPressed(vkeys.VK_NUMPAD0 + i) then 
+                        calc_press_number(tostring(i)) 
+                    end
+                end
+                
+                if wasKeyPressed(vkeys.VK_BACK) then
+                    if not calc_needs_reset and not calc_finished and #calc_display > 0 and calc_display ~= "0" then
+                        calc_display = calc_display:sub(1, -2)
+                        if calc_display == "" or calc_display == "-" then calc_display = "0" end
+                    end
+                end
+                
+                if wasKeyPressed(vkeys.VK_DELETE) then calc_clear() end
+                if wasKeyPressed(vkeys.VK_ADD) then calc_press_op("+") end
+                if wasKeyPressed(vkeys.VK_SUBTRACT) then calc_press_op("-") end
+                if wasKeyPressed(vkeys.VK_MULTIPLY) then calc_press_op("*") end
+                if wasKeyPressed(vkeys.VK_DIVIDE) then calc_press_op("/") end
+                
+                if shift and wasKeyPressed(187) then calc_press_op("+") end 
+                if not shift and wasKeyPressed(189) then calc_press_op("-") end 
+                if shift and wasKeyPressed(56) then calc_press_op("*") end 
+                if wasKeyPressed(191) then calc_press_op("/") end 
+                
+                -- Поддержка кнопки "=" (и на Numpad Enter, и обычного Enter, и клавиши равно)
+                if wasKeyPressed(vkeys.VK_RETURN) or (not shift and wasKeyPressed(187)) then calc_calculate() end
+                
+                if wasKeyPressed(vkeys.VK_DECIMAL) or (not shift and wasKeyPressed(190)) then calc_press_number(".") end
+            end
+
+            -- А ТУТ ДАЛЬШЕ ТВОЙ КОД ОТРИСОВКИ:
+            imgui.SetNextWindowSize(imgui.ImVec2(340, 520), imgui.Cond.Always) 
             if imgui.Begin(u8"Калькулятор##Calc", calc_window_state, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoCollapse) then
+                -- ... тут дисплей, история и отрисовка кнопок ...
                 
 				local window_width = imgui.GetWindowWidth()
                 local cur_y = imgui.GetCursorPosY()
@@ -1328,37 +1415,48 @@ imgui.OnFrame(
                 -- Центрируем сетку под новую ширину окна (280 - (55*4 + 10*3) = 30. Половина от 30 = 15)
                 local offset_x = 12
 
+-- Ряд 1: AC, C, +/-, /
                 imgui.SetCursorPosX(offset_x)
                 if DrawCalcBtn("AC", btn_w, btn_h, "action") then calc_clear() end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("C", btn_w, btn_h, "action") then 
+                    if not calc_needs_reset and not calc_finished and #calc_display > 0 and calc_display ~= "0" then
+                        calc_display = calc_display:sub(1, -2)
+                        if calc_display == "" or calc_display == "-" then calc_display = "0" end
+                    end
+                end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("+/-", btn_w, btn_h, "action") then 
                     if calc_display:sub(1,1) == "-" then calc_display = calc_display:sub(2) 
                     elseif calc_display ~= "0" then calc_display = "-" .. calc_display end
                 end; imgui.SameLine(0, btn_space)
-                if DrawCalcBtn("%", btn_w, btn_h, "action") then 
-                    calc_display = tostring((tonumber(calc_display) or 0) / 100)
-                end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("/", btn_w, btn_h, "op") then calc_press_op("/") end
 
+                -- Ряд 2: 7, 8, 9, *
                 imgui.SetCursorPosX(offset_x)
                 if DrawCalcBtn("7", btn_w, btn_h, "num") then calc_press_number("7") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("8", btn_w, btn_h, "num") then calc_press_number("8") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("9", btn_w, btn_h, "num") then calc_press_number("9") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("*", btn_w, btn_h, "op") then calc_press_op("*") end
 
+                -- Ряд 3: 4, 5, 6, -
                 imgui.SetCursorPosX(offset_x)
                 if DrawCalcBtn("4", btn_w, btn_h, "num") then calc_press_number("4") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("5", btn_w, btn_h, "num") then calc_press_number("5") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("6", btn_w, btn_h, "num") then calc_press_number("6") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("-", btn_w, btn_h, "op") then calc_press_op("-") end
 
+                -- Ряд 4: 1, 2, 3, +
                 imgui.SetCursorPosX(offset_x)
                 if DrawCalcBtn("1", btn_w, btn_h, "num") then calc_press_number("1") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("2", btn_w, btn_h, "num") then calc_press_number("2") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("3", btn_w, btn_h, "num") then calc_press_number("3") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("+", btn_w, btn_h, "op") then calc_press_op("+") end
 
+                -- Ряд 5: %, 0, ., =
                 imgui.SetCursorPosX(offset_x)
-                if DrawCalcBtn("0", btn_w * 2 + btn_space, btn_h, "num") then calc_press_number("0") end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("%", btn_w, btn_h, "num") then 
+                    calc_display = tostring((tonumber(calc_display) or 0) / 100)
+                end; imgui.SameLine(0, btn_space)
+                if DrawCalcBtn("0", btn_w, btn_h, "num") then calc_press_number("0") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn(".", btn_w, btn_h, "num") then calc_press_number(".") end; imgui.SameLine(0, btn_space)
                 if DrawCalcBtn("=", btn_w, btn_h, "op") then calc_calculate() end
 
