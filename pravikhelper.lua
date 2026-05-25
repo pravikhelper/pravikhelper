@@ -72,7 +72,7 @@ inicfg.save(cfg, "PravikHelper.ini")
 -- ÀÂÒÎÎÁÍÎÂËÅÍÈÅ ÑÊĞÈÏÒÀ
 -- =========================
 -- ÇÀÌÅÍÈ İÒÈ ÑÑÛËÊÈ ÍÀ ÑÂÎÈ (RAW ññûëêè ñ GitHub)
-local update_info_url = "https://raw.githubusercontent.com/pravikhelper/pravikhelper/refs/heads/main/version.js"
+local update_info_url = "https://raw.githubusercontent.com/pravikhelper/pravikhelper/refs/heads/main/version.json"
 local script_url = "https://raw.githubusercontent.com/pravikhelper/pravikhelper/refs/heads/main/pravikhelper.lua"
 
 function checkUpdates()
