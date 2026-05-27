@@ -1,4 +1,4 @@
-local script_version = 2.0
+local script_version = 2.1
 
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
@@ -250,9 +250,45 @@ local function calc_calculate()
         table.remove(calc_history_log, 1)
     end
     
+    -- ИСПРАВЛЕНИЕ: Сохраняем текущий результат как предыдущее значение для цепочки вычислений
+    calc_prev_value = result 
     calc_operation = ""
     calc_needs_reset = true
     calc_finished = true
+end
+
+local function calc_press_op(op)
+    -- ИСПРАВЛЕНИЕ: Если мы только что нажали "=", продолжаем вычисление с полученного результата
+    if calc_finished then
+        calc_finished = false
+        calc_needs_reset = true
+        calc_prev_value = tonumber(calc_display) or 0
+        calc_operation = op
+        local prev_str = (calc_prev_value == math.floor(calc_prev_value)) and tostring(math.floor(calc_prev_value)) or tostring(calc_prev_value)
+        calc_history = prev_str .. " " .. op
+        return
+    end
+
+    if calc_needs_reset then
+        calc_operation = op
+        local prev_str = (calc_prev_value == math.floor(calc_prev_value)) and tostring(math.floor(calc_prev_value)) or tostring(calc_prev_value)
+        calc_history = prev_str .. " " .. op
+        return 
+    end
+    
+    if calc_operation ~= "" then
+        calc_calculate()
+        calc_finished = false -- Отменяем статус завершения, чтобы продолжить цепочку (например: 5 + 3 + 2)
+    end
+    
+    calc_prev_value = tonumber(calc_display) or 0
+    calc_operation = op
+    
+    local prev_str = (calc_prev_value == math.floor(calc_prev_value)) and tostring(math.floor(calc_prev_value)) or tostring(calc_prev_value)
+    calc_history = prev_str .. " " .. op
+    
+    calc_needs_reset = true
+    calc_finished = false
 end
 
 local function calc_press_number(num)
@@ -557,7 +593,13 @@ function sendToTelegram(chat_text)
     local safe_text = urlencode(u8(raw_message))
     local final_text_url = "%F0%9F%9A%A8%20" .. safe_text
     
-    local url = string.format("%s/bot%s/sendMessage?chat_id=%s&parse_mode=HTML&text=%s", getBaseUrl(), u8:decode(ffi.string(tg_token)), tostring(tg_chat_id), final_text_url)
+    -- Формируем JSON с инлайн-кнопками под сообщением
+    local keyboard = '{"inline_keyboard":[[{"text":"rec 300 (5 мин)","callback_data":"rec 300"},{"text":"rec 600 (10 мин)","callback_data":"rec 600"}]]}'
+    local safe_keyboard = urlencode(u8(keyboard))
+    
+    -- Добавляем параметр reply_markup в URL
+    local url = string.format("%s/bot%s/sendMessage?chat_id=%s&parse_mode=HTML&text=%s&reply_markup=%s", 
+        getBaseUrl(), u8:decode(ffi.string(tg_token)), tostring(tg_chat_id), final_text_url, safe_keyboard)
     
     async_http_request(url)
 end
@@ -590,6 +632,7 @@ function checkTelegramUpdates(token)
                 for _, update in ipairs(data.result) do
                     last_update_id = update.update_id
                     
+                    -- 1. Обработка обычных текстовых сообщений (как было)
                     if update.message and update.message.chat and update.message.text then
                         local incoming_chat_id = update.message.chat.id
                         local incoming_text = update.message.text
@@ -605,6 +648,22 @@ function checkTelegramUpdates(token)
                         
                         elseif incoming_chat_id == tg_chat_id then
                             processTelegramCommand(incoming_text)
+                        end
+                    end
+
+                    -- 2. ОБРАБОТКА НАЖАТИЙ НА КНОПКИ (callback_query)
+                    if update.callback_query and update.callback_query.message then
+                        local incoming_chat_id = update.callback_query.message.chat.id
+                        local callback_data = update.callback_query.data -- Сюда придет "rec 600" или "rec 900"
+                        local callback_id = update.callback_query.id
+                        
+                        if incoming_chat_id == tg_chat_id then
+                            -- Передаем команду "rec 600" в ту же функцию, что и обычный текст
+                            processTelegramCommand(callback_data)
+                            
+                            -- Обязательно отправляем ответ серверам ТГ, чтобы на кнопке перестали крутиться "часики"
+                            local answer_url = string.format("%s/bot%s/answerCallbackQuery?callback_query_id=%s", getBaseUrl(), token, tostring(callback_id))
+                            async_http_request(answer_url)
                         end
                     end
                 end
