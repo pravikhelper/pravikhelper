@@ -1,4 +1,4 @@
-local script_version = 2.3
+local script_version = 2.4
 
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
@@ -7,7 +7,8 @@ local inicfg = require 'inicfg'
 local requests = require 'requests'
 local vkeys = require 'vkeys'
 encoding.default = 'CP1251'
-u8 = encoding.UTF8 
+u8 = encoding.UTF8
+local dlstatus = require('moonloader').download_status
 
 local sampev = require 'lib.samp.events'
 local sampfuncs = require 'sampfuncs'
@@ -82,41 +83,68 @@ function checkUpdates()
                 if tonumber(data.version) > script_version then
                     sampAddChatMessage("{555555}PravikHelper: {777777}Найдено обновление! Скачиваю...", -1)
                     
-                    -- Формируем чистый и правильный путь для файла
-                    local correct_filename = "pravikhelper.lua"
-                    local correct_path = getWorkingDirectory() .. "\\" .. correct_filename
-                    local current_path = thisScript().path
-                    
-                    -- Скачиваем файл по правильному пути, игнорируя текущее название скрипта
-                    downloadUrlToFile(script_url, correct_path, function(id, status, p1, p2)
-                        if status == 58 then 
-                            sampAddChatMessage("{555555}PravikHelper: {777777}Обновление успешно загружено!", -1)
-                            
-                            -- Проверяем, запущено ли обновление с правильным именем
-                            if not current_path:lower():find("pravikhelper%.lua$") then
-                                
-                                -- Удаляем старый файл
-                                os.remove(current_path)
-                                
-                                -- Загружаем новый чистый pravikhelper.lua
-                                script.load(correct_path)
-                                
-                                -- Удаляем текущий (старый) скрипт из памяти
-                                thisScript():unload()
-                            else
-                                sampAddChatMessage("{555555}PravikHelper: {777777}Перезагружаю скрипт...", -1)
-                                thisScript():reload()
-                            end
-                        elseif status == 73 then 
-                            addToast(u8"Ошибка скачивания обновления", 3)
-                        end
-                    end)
-                else
-                    print("Установлена актуальная версия скрипта.")
-                end
-            end
-        end
-    end)
+				-- Формируем чистый и правильный путь для файла
+				local correct_filename = "pravikhelper.lua"
+				local correct_path = getWorkingDirectory() .. "\\" .. correct_filename
+				local current_path = thisScript().path
+
+				print("[PravikHelper DEBUG] --- СТАРТ ОБНОВЛЕНИЯ ---")
+				print("[PravikHelper DEBUG] URL: " .. tostring(script_url))
+				print("[PravikHelper DEBUG] Сохраняем в: " .. tostring(correct_path))
+				print("[PravikHelper DEBUG] Текущий путь скрипта: " .. tostring(current_path))
+
+				-- Скачиваем файл по правильному пути, игнорируя текущее название скрипта
+				downloadUrlToFile(script_url, correct_path, function(id, status, p1, p2)
+					if status == 58 then 
+						print("[PravikHelper DEBUG] Статус 58 (завершено). Проверяем файл на диске...")
+						
+						-- Проверка целостности скачанного файла
+						local file = io.open(correct_path, "r")
+						if file then
+							local content = file:read("*a")
+							file:close()
+							print("[PravikHelper DEBUG] Файл успешно открыт. Его размер: " .. #content .. " байт.")
+							
+							if #content == 0 then
+								print("[PravikHelper DEBUG] КРИТИЧЕСКАЯ ОШИБКА: Файл пустой (0 байт). Защитник Windows съел файл, либо отвалился SSL.")
+							elseif content:match("<html") or content:match("404 Not Found") then
+								print("[PravikHelper DEBUG] КРИТИЧЕСКАЯ ОШИБКА: Скачался не код скрипта, а HTML/ошибка.")
+							else
+								print("[PravikHelper DEBUG] Код выглядит валидным, идем дальше.")
+								sampAddChatMessage("{555555}PravikHelper: {777777}Обновление успешно загружено!", -1)
+								
+								-- Проверяем, запущено ли обновление с правильным именем
+								if not current_path:lower():find("pravikhelper%.lua$") then
+									print("[PravikHelper DEBUG] Имена разные. Удаляем старый файл: " .. current_path)
+									
+									-- Пробуем удалить и ловим ошибку, если винда не дает прав
+									local success, err = os.remove(current_path)
+									if not success then
+										print("[PravikHelper DEBUG] ОШИБКА ПРИ УДАЛЕНИИ: " .. tostring(err))
+									end
+									
+									print("[PravikHelper DEBUG] Выгружаем старый и грузим чистый pravikhelper.lua")
+									script.load(correct_path)
+									thisScript():unload()
+								else
+									print("[PravikHelper DEBUG] Имена совпадают. Делаем reload()...")
+									sampAddChatMessage("{555555}PravikHelper: {777777}Перезагружаю скрипт...", -1)
+									thisScript():reload()
+								end
+							end
+						else
+							print("[PravikHelper DEBUG] КРИТИЧЕСКАЯ ОШИБКА: io.open вернул nil. Скрипту не хватает прав (UAC) для записи/чтения в папке moonloader.")
+						end
+						
+						elseif status == 73 then
+                        print("[PravikHelper DEBUG] Ошибка скачивания (статус 73).")
+                        addToast(u8"Ошибка скачивания обновления", 3)
+                    end
+                end) -- Закрывает downloadUrlToFile
+            end -- Закрывает: if tonumber(data.version) > script_version then
+        end -- Закрывает: if ok and data and data.version then
+    end -- Закрывает: if response_text and response_text ~= "" then
+end) -- Закрывает: async_http_request
 end
 
 -- =========================
