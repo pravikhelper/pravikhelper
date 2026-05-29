@@ -1,4 +1,4 @@
-local script_version = 2.1
+local script_version = 2.2
 
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
@@ -16,7 +16,7 @@ require "lib.moonloader"
 local effil = require 'effil'
 
 -- =========================
--- НАСТРОЙКИ СКРИПТА И КОНФИГ
+-- ГЌГЂГ‘Г’ГђГЋГ‰ГЉГ€ Г‘ГЉГђГ€ГЏГ’ГЂ Г€ ГЉГЋГЌГ”Г€Гѓ
 -- =========================
 local default_cfg = {
     config = {
@@ -35,13 +35,13 @@ local default_cfg = {
         fractionrp_cd_enabled = true,
         autophone_inc_enabled = true,
         autophone_out_enabled = true,
-        autophone_inc_text = "напиши ало если сосал",
-        autophone_out_text = "ало ну как там с деньгами",
+        autophone_inc_text = "Г­Г ГЇГЁГёГЁ Г Г«Г® ГҐГ±Г«ГЁ Г±Г®Г±Г Г«",
+        autophone_out_text = "Г Г«Г® Г­Гі ГЄГ ГЄ ГІГ Г¬ Г± Г¤ГҐГ­ГјГЈГ Г¬ГЁ",
         vc_form_enabled = true,
         fwarn_form_enabled = true,
         form_hotkey = vkeys.VK_F3,
         sbiv_chat_enabled = false,
-        sbiv_chat_text = "я патрик",
+        sbiv_chat_text = "Гї ГЇГ ГІГ°ГЁГЄ",
         givecitizen_enabled = false,
 		givesocial_enabled = false,
         givepass_enabled = false,
@@ -69,7 +69,7 @@ end
 inicfg.save(cfg, "PravikHelper.ini")
 
 -- =========================
--- АВТООБНОВЛЕНИЕ СКРИПТА
+-- ГЂГ‚Г’ГЋГЋГЃГЌГЋГ‚Г‹Г…ГЌГ€Г… Г‘ГЉГђГ€ГЏГ’ГЂ
 -- =========================
 local update_info_url = "https://raw.githubusercontent.com/pravikhelper/pravikhelper/refs/heads/main/version.json"
 local script_url = "https://raw.githubusercontent.com/pravikhelper/pravikhelper/refs/heads/main/pravikhelper.lua"
@@ -80,39 +80,39 @@ function checkUpdates()
             local ok, data = pcall(decodeJson, response_text)
             if ok and data and data.version then
                 if tonumber(data.version) > script_version then
-                    sampAddChatMessage("{555555}PravikHelper: {777777}Найдено обновление! Скачиваю...", -1)
+                    sampAddChatMessage("{555555}PravikHelper: {777777}ГЌГ Г©Г¤ГҐГ­Г® Г®ГЎГ­Г®ГўГ«ГҐГ­ГЁГҐ! Г‘ГЄГ Г·ГЁГўГ Гѕ...", -1)
                     
-                    -- Формируем жесткий и правильный путь для файла
+                    -- Г”Г®Г°Г¬ГЁГ°ГіГҐГ¬ Г¦ГҐГ±ГІГЄГЁГ© ГЁ ГЇГ°Г ГўГЁГ«ГјГ­Г»Г© ГЇГіГІГј Г¤Г«Гї ГґГ Г©Г«Г 
                     local correct_filename = "pravikhelper.lua"
                     local correct_path = getWorkingDirectory() .. "\\" .. correct_filename
                     local current_path = thisScript().path
                     
-                    -- Скачиваем файл по правильному пути, игнорируя текущее название скрипта
+                    -- Г‘ГЄГ Г·ГЁГўГ ГҐГ¬ ГґГ Г©Г« ГЇГ® ГЇГ°Г ГўГЁГ«ГјГ­Г®Г¬Гі ГЇГіГІГЁ, ГЁГЈГ­Г®Г°ГЁГ°ГіГї ГІГҐГЄГіГ№ГҐГҐ Г­Г Г§ГўГ Г­ГЁГҐ Г±ГЄГ°ГЁГЇГІГ 
                     downloadUrlToFile(script_url, correct_path, function(id, status, p1, p2)
                         if status == 58 then 
-                            sampAddChatMessage("{555555}PravikHelper: {777777}Обновление успешно загружено!", -1)
+                            sampAddChatMessage("{555555}PravikHelper: {777777}ГЋГЎГ­Г®ГўГ«ГҐГ­ГЁГҐ ГіГ±ГЇГҐГёГ­Г® Г§Г ГЈГ°ГіГ¦ГҐГ­Г®!", -1)
                             
-                            -- Проверяем, запущено ли обновление с правильным именем
+                            -- ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, Г§Г ГЇГіГ№ГҐГ­Г® Г«ГЁ Г®ГЎГ­Г®ГўГ«ГҐГ­ГЁГҐ Г± ГЇГ°Г ГўГЁГ«ГјГ­Г»Г¬ ГЁГ¬ГҐГ­ГҐГ¬
                             if not current_path:lower():find("pravikhelper%.lua$") then
                                 
-                                -- Удаляем старый файл (например, pravikhelper (5).lua)
+                                -- Г“Г¤Г Г«ГїГҐГ¬ Г±ГІГ Г°Г»Г© ГґГ Г©Г« (Г­Г ГЇГ°ГЁГ¬ГҐГ°, pravikhelper (5).lua)
                                 os.remove(current_path)
                                 
-                                -- Загружаем новый чистый pravikhelper.lua
+                                -- Г‡Г ГЈГ°ГіГ¦Г ГҐГ¬ Г­Г®ГўГ»Г© Г·ГЁГ±ГІГ»Г© pravikhelper.lua
                                 script.load(correct_path)
                                 
-                                -- Убиваем текущий (старый) скрипт в памяти
+                                -- Г“ГЎГЁГўГ ГҐГ¬ ГІГҐГЄГіГ№ГЁГ© (Г±ГІГ Г°Г»Г©) Г±ГЄГ°ГЁГЇГІ Гў ГЇГ Г¬ГїГІГЁ
                                 thisScript():unload()
                             else
-                                sampAddChatMessage("{555555}PravikHelper: {777777}Перезагружаю скрипт...", -1)
+                                sampAddChatMessage("{555555}PravikHelper: {777777}ГЏГҐГ°ГҐГ§Г ГЈГ°ГіГ¦Г Гѕ Г±ГЄГ°ГЁГЇГІ...", -1)
                                 thisScript():reload()
                             end
                         elseif status == 73 then 
-                            addToast(u8"Ошибка скачивания обновления", 3)
+                            addToast(u8"ГЋГёГЁГЎГЄГ  Г±ГЄГ Г·ГЁГўГ Г­ГЁГї Г®ГЎГ­Г®ГўГ«ГҐГ­ГЁГї", 3)
                         end
                     end)
                 else
-                    print("Установлена актуальная версия скрипта.")
+                    print("Г“Г±ГІГ Г­Г®ГўГ«ГҐГ­Г  Г ГЄГІГіГ Г«ГјГ­Г Гї ГўГҐГ°Г±ГЁГї Г±ГЄГ°ГЁГЇГІГ .")
                 end
             end
         end
@@ -120,7 +120,7 @@ function checkUpdates()
 end
 
 -- =========================
--- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (MIMGUI)
+-- ГѓГ‹ГЋГЃГЂГ‹ГњГЌГ›Г… ГЏГ…ГђГ…ГЊГ…ГЌГЌГ›Г… (MIMGUI)
 -- =========================
 local main_window_state = imgui.new.bool(false)
 local last_frame_time = os.clock()
@@ -148,7 +148,7 @@ local last_invited_for_giverank_id = nil
 local givepass_action_type = nil
 
 local check_stroy_radius = imgui.new.float(20.0)
-local punish_reason = imgui.new.char[256](u8"неявка в строй")
+local punish_reason = imgui.new.char[256](u8"Г­ГҐГїГўГЄГ  Гў Г±ГІГ°Г®Г©")
 local punish_delay = imgui.new.int(4) 
 local ignore_rank_8_plus = imgui.new.bool(true)
 local ignore_2_fwarns = imgui.new.bool(true)
@@ -198,7 +198,7 @@ local last_tg_alert_time = 0
 
 -- =========================
 -- =========================
--- ПЕРЕМЕННЫЕ И ЛОГИКА КАЛЬКУЛЯТОРА
+-- ГЏГ…ГђГ…ГЊГ…ГЌГЌГ›Г… Г€ Г‹ГЋГѓГ€ГЉГЂ ГЉГЂГ‹ГњГЉГ“Г‹ГџГ’ГЋГђГЂ
 -- =========================
 local calc_window_state = imgui.new.bool(false)
 local calc_display = "0"
@@ -250,7 +250,7 @@ local function calc_calculate()
         table.remove(calc_history_log, 1)
     end
     
-    -- ИСПРАВЛЕНИЕ: Сохраняем текущий результат как предыдущее значение для цепочки вычислений
+    -- Г€Г‘ГЏГђГЂГ‚Г‹Г…ГЌГ€Г…: Г‘Г®ГµГ°Г Г­ГїГҐГ¬ ГІГҐГЄГіГ№ГЁГ© Г°ГҐГ§ГіГ«ГјГІГ ГІ ГЄГ ГЄ ГЇГ°ГҐГ¤Г»Г¤ГіГ№ГҐГҐ Г§Г­Г Г·ГҐГ­ГЁГҐ Г¤Г«Гї Г¶ГҐГЇГ®Г·ГЄГЁ ГўГ»Г·ГЁГ±Г«ГҐГ­ГЁГ©
     calc_prev_value = result 
     calc_operation = ""
     calc_needs_reset = true
@@ -258,7 +258,7 @@ local function calc_calculate()
 end
 
 local function calc_press_op(op)
-    -- ИСПРАВЛЕНИЕ: Если мы только что нажали "=", продолжаем вычисление с полученного результата
+    -- Г€Г‘ГЏГђГЂГ‚Г‹Г…ГЌГ€Г…: Г…Г±Г«ГЁ Г¬Г» ГІГ®Г«ГјГЄГ® Г·ГІГ® Г­Г Г¦Г Г«ГЁ "=", ГЇГ°Г®Г¤Г®Г«Г¦Г ГҐГ¬ ГўГ»Г·ГЁГ±Г«ГҐГ­ГЁГҐ Г± ГЇГ®Г«ГіГ·ГҐГ­Г­Г®ГЈГ® Г°ГҐГ§ГіГ«ГјГІГ ГІГ 
     if calc_finished then
         calc_finished = false
         calc_needs_reset = true
@@ -278,7 +278,7 @@ local function calc_press_op(op)
     
     if calc_operation ~= "" then
         calc_calculate()
-        calc_finished = false -- Отменяем статус завершения, чтобы продолжить цепочку (например: 5 + 3 + 2)
+        calc_finished = false -- ГЋГІГ¬ГҐГ­ГїГҐГ¬ Г±ГІГ ГІГіГ± Г§Г ГўГҐГ°ГёГҐГ­ГЁГї, Г·ГІГ®ГЎГ» ГЇГ°Г®Г¤Г®Г«Г¦ГЁГІГј Г¶ГҐГЇГ®Г·ГЄГі (Г­Г ГЇГ°ГЁГ¬ГҐГ°: 5 + 3 + 2)
     end
     
     calc_prev_value = tonumber(calc_display) or 0
@@ -341,7 +341,7 @@ local vice_api = "https://api.arizona-five.com/launcher/servers"
 local toasts = {}
 
 -- =========================
--- УТИЛИТЫ И ФУНКЦИИ
+-- Г“Г’Г€Г‹Г€Г’Г› Г€ Г”Г“ГЌГЉГ–Г€Г€
 -- =========================
 function addToast(text, msgType, duration)
     table.insert(toasts, {
@@ -434,10 +434,10 @@ end
 imgui.OnInitialize(function()
     apply_custom_style()
     
-    -- Загружаем большой шрифт для дисплея калькулятора (размер 35)
+    -- Г‡Г ГЈГ°ГіГ¦Г ГҐГ¬ ГЎГ®Г«ГјГёГ®Г© ГёГ°ГЁГґГІ Г¤Г«Гї Г¤ГЁГ±ГЇГ«ГҐГї ГЄГ Г«ГјГЄГіГ«ГїГІГ®Г°Г  (Г°Г Г§Г¬ГҐГ° 35)
     local config = imgui.ImFontConfig()
     local glyph_ranges = imgui.GetIO().Fonts:GetGlyphRangesCyrillic()
-	-- Передаем nil вместо config, чтобы избежать краша памяти
+	-- ГЏГҐГ°ГҐГ¤Г ГҐГ¬ nil ГўГ¬ГҐГ±ГІГ® config, Г·ГІГ®ГЎГ» ГЁГ§ГЎГҐГ¦Г ГІГј ГЄГ°Г ГёГ  ГЇГ Г¬ГїГІГЁ
     local font_path = os.getenv("WINDIR") .. "\\Fonts\\arial.ttf"
     
     font_large = imgui.GetIO().Fonts:AddFontFromFileTTF(font_path, 35.0, nil, glyph_ranges)
@@ -476,7 +476,7 @@ function sendCefPacket()
     for i = 1, #packetData do raknetBitStreamWriteInt8(bs, packetData[i]) end
     raknetSendBitStreamEx(bs, 1, 7, 0)
     raknetDeleteBitStream(bs)
-    addToast(u8"Пакет переодевания отправлен!", 1)
+    addToast(u8"ГЏГ ГЄГҐГІ ГЇГҐГ°ГҐГ®Г¤ГҐГўГ Г­ГЁГї Г®ГІГЇГ°Г ГўГ«ГҐГ­!", 1)
 end
 
 function async_http_request(url, callback)
@@ -530,13 +530,13 @@ function getVcServer()
             local data = decodeJson(response_text)
             if data and data.vc then
                 for _, po in pairs(data.vc) do
-                    addToast(u8('Сервер: %s | онлайн: %s/%s | очередь: %s'):format(po.name, po.online, po.maxplayers, po.queue), 0xCCCCCC)
-                    sampAddChatMessage(('[PravikHelper] {FFFFFF}Сервер: %s | онлайн: %s/%s | очередь: %s'):format(po.name, po.online, po.maxplayers, po.queue), 0xCCCCCC)
+                    addToast(u8('Г‘ГҐГ°ГўГҐГ°: %s | Г®Г­Г«Г Г©Г­: %s/%s | Г®Г·ГҐГ°ГҐГ¤Гј: %s'):format(po.name, po.online, po.maxplayers, po.queue), 0xCCCCCC)
+                    sampAddChatMessage(('[PravikHelper] {FFFFFF}Г‘ГҐГ°ГўГҐГ°: %s | Г®Г­Г«Г Г©Г­: %s/%s | Г®Г·ГҐГ°ГҐГ¤Гј: %s'):format(po.name, po.online, po.maxplayers, po.queue), 0xCCCCCC)
                 end
                 return
             end
         end
-        addToast(u8"Ошибка при получении данных с сервера VC.", 3)
+        addToast(u8"ГЋГёГЁГЎГЄГ  ГЇГ°ГЁ ГЇГ®Г«ГіГ·ГҐГ­ГЁГЁ Г¤Г Г­Г­Г»Гµ Г± Г±ГҐГ°ГўГҐГ°Г  VC.", 3)
     end)
 end
 
@@ -552,7 +552,7 @@ function parseSpawnListInit()
         load_idx = load_idx + 1
     end
     
-    if #parsed_spawn_list == 0 then table.insert(parsed_spawn_list, "Данные не загружены") end
+    if #parsed_spawn_list == 0 then table.insert(parsed_spawn_list, "Г„Г Г­Г­Г»ГҐ Г­ГҐ Г§Г ГЈГ°ГіГ¦ГҐГ­Г»") end
 
     local wanted_name_init = cfg.config.autorec_spawn_name or ""
     for i, name in ipairs(parsed_spawn_list) do
@@ -563,7 +563,7 @@ function parseSpawnListInit()
     end
 end
 
--- ================= УТИЛИТЫ TELEGRAM ================= --
+-- ================= Г“Г’Г€Г‹Г€Г’Г› TELEGRAM ================= --
 function urlencode(str)
     if str then
         str = str:gsub("\n", "\r\n")
@@ -589,15 +589,15 @@ function sendToTelegram(chat_text)
     local clean_text = chat_text:gsub("{......}", "")
     clean_text = clean_text:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
      
-    local raw_message = "<b>Возможно обнаружен строй</b>\n\nСообщение из игры:\n<code>" .. clean_text .. "</code>"
+    local raw_message = "<b>Г‚Г®Г§Г¬Г®Г¦Г­Г® Г®ГЎГ­Г Г°ГіГ¦ГҐГ­ Г±ГІГ°Г®Г©</b>\n\nГ‘Г®Г®ГЎГ№ГҐГ­ГЁГҐ ГЁГ§ ГЁГЈГ°Г»:\n<code>" .. clean_text .. "</code>"
     local safe_text = urlencode(u8(raw_message))
     local final_text_url = "%F0%9F%9A%A8%20" .. safe_text
     
-    -- Формируем JSON с инлайн-кнопками под сообщением
-    local keyboard = '{"inline_keyboard":[[{"text":"rec 300 (5 мин)","callback_data":"rec 300"},{"text":"rec 600 (10 мин)","callback_data":"rec 600"}]]}'
+    -- Г”Г®Г°Г¬ГЁГ°ГіГҐГ¬ JSON Г± ГЁГ­Г«Г Г©Г­-ГЄГ­Г®ГЇГЄГ Г¬ГЁ ГЇГ®Г¤ Г±Г®Г®ГЎГ№ГҐГ­ГЁГҐГ¬
+    local keyboard = '{"inline_keyboard":[[{"text":"rec 300 (5 Г¬ГЁГ­)","callback_data":"rec 300"},{"text":"rec 600 (10 Г¬ГЁГ­)","callback_data":"rec 600"}]]}'
     local safe_keyboard = urlencode(u8(keyboard))
     
-    -- Добавляем параметр reply_markup в URL
+    -- Г„Г®ГЎГ ГўГ«ГїГҐГ¬ ГЇГ Г°Г Г¬ГҐГІГ° reply_markup Гў URL
     local url = string.format("%s/bot%s/sendMessage?chat_id=%s&parse_mode=HTML&text=%s&reply_markup=%s", 
         getBaseUrl(), u8:decode(ffi.string(tg_token)), tostring(tg_chat_id), final_text_url, safe_keyboard)
     
@@ -612,7 +612,7 @@ function processTelegramCommand(text)
         local time = tonumber(time_str)
         startNativeReconnect(time)
         
-        local reply = urlencode(u8("Выговоры отменяются.\nПерезаход через " .. time .. " сек."))
+        local reply = urlencode(u8("Г‚Г»ГЈГ®ГўГ®Г°Г» Г®ГІГ¬ГҐГ­ГїГѕГІГ±Гї.\nГЏГҐГ°ГҐГ§Г ГµГ®Г¤ Г·ГҐГ°ГҐГ§ " .. time .. " Г±ГҐГЄ."))
         local url = string.format("%s/bot%s/sendMessage?chat_id=%s&text=%s", getBaseUrl(), u8:decode(ffi.string(tg_token)), tostring(tg_chat_id), reply)
         
         async_http_request(url)
@@ -632,7 +632,7 @@ function checkTelegramUpdates(token)
                 for _, update in ipairs(data.result) do
                     last_update_id = update.update_id
                     
-                    -- 1. Обработка обычных текстовых сообщений (как было)
+                    -- 1. ГЋГЎГ°Г ГЎГ®ГІГЄГ  Г®ГЎГ»Г·Г­Г»Гµ ГІГҐГЄГ±ГІГ®ГўГ»Гµ Г±Г®Г®ГЎГ№ГҐГ­ГЁГ© (ГЄГ ГЄ ГЎГ»Г«Г®)
                     if update.message and update.message.chat and update.message.text then
                         local incoming_chat_id = update.message.chat.id
                         local incoming_text = update.message.text
@@ -640,9 +640,9 @@ function checkTelegramUpdates(token)
                         if tg_chat_id == 0 then
                             tg_chat_id = incoming_chat_id
                             saveConfig()
-                            addToast(u8"Успешная привязка! Аккаунт Telegram сохранен.", 2)
+                            addToast(u8"Г“Г±ГЇГҐГёГ­Г Гї ГЇГ°ГЁГўГїГ§ГЄГ ! ГЂГЄГЄГ ГіГ­ГІ Telegram Г±Г®ГµГ°Г Г­ГҐГ­.", 2)
                             
-                            local welcome_msg = urlencode(u8("Авторизация успешна!\nТеперь уведомления будут приходить сюда."))
+                            local welcome_msg = urlencode(u8("ГЂГўГІГ®Г°ГЁГ§Г Г¶ГЁГї ГіГ±ГЇГҐГёГ­Г !\nГ’ГҐГЇГҐГ°Гј ГіГўГҐГ¤Г®Г¬Г«ГҐГ­ГЁГї ГЎГіГ¤ГіГІ ГЇГ°ГЁГµГ®Г¤ГЁГІГј Г±ГѕГ¤Г ."))
                             local tg_url = string.format("%s/bot%s/sendMessage?chat_id=%s&text=%s", getBaseUrl(), token, tostring(incoming_chat_id), welcome_msg)
                             async_http_request(tg_url)
                         
@@ -651,17 +651,17 @@ function checkTelegramUpdates(token)
                         end
                     end
 
-                    -- 2. ОБРАБОТКА НАЖАТИЙ НА КНОПКИ (callback_query)
+                    -- 2. ГЋГЃГђГЂГЃГЋГ’ГЉГЂ ГЌГЂГ†ГЂГ’Г€Г‰ ГЌГЂ ГЉГЌГЋГЏГЉГ€ (callback_query)
                     if update.callback_query and update.callback_query.message then
                         local incoming_chat_id = update.callback_query.message.chat.id
-                        local callback_data = update.callback_query.data -- Сюда придет "rec 600" или "rec 900"
+                        local callback_data = update.callback_query.data -- Г‘ГѕГ¤Г  ГЇГ°ГЁГ¤ГҐГІ "rec 600" ГЁГ«ГЁ "rec 900"
                         local callback_id = update.callback_query.id
                         
                         if incoming_chat_id == tg_chat_id then
-                            -- Передаем команду "rec 600" в ту же функцию, что и обычный текст
+                            -- ГЏГҐГ°ГҐГ¤Г ГҐГ¬ ГЄГ®Г¬Г Г­Г¤Гі "rec 600" Гў ГІГі Г¦ГҐ ГґГіГ­ГЄГ¶ГЁГѕ, Г·ГІГ® ГЁ Г®ГЎГ»Г·Г­Г»Г© ГІГҐГЄГ±ГІ
                             processTelegramCommand(callback_data)
                             
-                            -- Обязательно отправляем ответ серверам ТГ, чтобы на кнопке перестали крутиться "часики"
+                            -- ГЋГЎГїГ§Г ГІГҐГ«ГјГ­Г® Г®ГІГЇГ°Г ГўГ«ГїГҐГ¬ Г®ГІГўГҐГІ Г±ГҐГ°ГўГҐГ°Г Г¬ Г’Гѓ, Г·ГІГ®ГЎГ» Г­Г  ГЄГ­Г®ГЇГЄГҐ ГЇГҐГ°ГҐГ±ГІГ Г«ГЁ ГЄГ°ГіГІГЁГІГјГ±Гї "Г·Г Г±ГЁГЄГЁ"
                             local answer_url = string.format("%s/bot%s/answerCallbackQuery?callback_query_id=%s", getBaseUrl(), token, tostring(callback_id))
                             async_http_request(answer_url)
                         end
@@ -682,7 +682,7 @@ function startNativeReconnect(timeout_sec)
             sampDisconnectWithReason(0)
         end
         
-        addToast(u8(string.format("Реконнект. Ожидание %d сек...", timeout_sec)), 2)
+        addToast(u8(string.format("ГђГҐГЄГ®Г­Г­ГҐГЄГІ. ГЋГ¦ГЁГ¤Г Г­ГЁГҐ %d Г±ГҐГЄ...", timeout_sec)), 2)
 
         local timeout_clock = os.clock()
         while true do
@@ -693,7 +693,7 @@ function startNativeReconnect(timeout_sec)
         if sampIsDialogActive() then sampCloseCurrentDialogWithButton(0) end
 
         sampSetGamestate(GAMESTATE_WAIT_CONNECT)
-        addToast(u8"Подключаемся к серверу...", 2)
+        addToast(u8"ГЏГ®Г¤ГЄГ«ГѕГ·Г ГҐГ¬Г±Гї ГЄ Г±ГҐГ°ГўГҐГ°Гі...", 2)
     end)
 end
 
@@ -706,7 +706,7 @@ function onWindowMessage(msg, wparam, lparam)
             
             if msg == 0x0100 then
                 main_window_state[0] = false
-                calc_window_state[0] = false -- Добавили закрытие калькулятора
+                calc_window_state[0] = false -- Г„Г®ГЎГ ГўГЁГ«ГЁ Г§Г ГЄГ°Г»ГІГЁГҐ ГЄГ Г«ГјГЄГіГ«ГїГІГ®Г°Г 
             end
             
             consumeWindowMessage(true, true)
@@ -715,24 +715,24 @@ function onWindowMessage(msg, wparam, lparam)
 end
 
 -- =========================
--- ОСНОВНОЙ ПОТОК
+-- ГЋГ‘ГЌГЋГ‚ГЌГЋГ‰ ГЏГЋГ’ГЋГЉ
 -- =========================
 function main()
     if not isSampLoaded() or not isSampfuncsLoaded() then return end
     repeat wait(0) until isSampAvailable()
 	
 	-- =========================
-        -- КЛАВИАТУРА КАЛЬКУЛЯТОРА
+        -- ГЉГ‹ГЂГ‚Г€ГЂГ’Г“ГђГЂ ГЉГЂГ‹ГњГЉГ“Г‹ГџГ’ГЋГђГЂ
         -- =========================
         if calc_window_state[0] and not sampIsChatInputActive() and not sampIsDialogActive() and not isSampfuncsConsoleActive() then
-            -- Цифры 0-9 (Numpad и основная)
+            -- Г–ГЁГґГ°Г» 0-9 (Numpad ГЁ Г®Г±Г­Г®ГўГ­Г Гї)
             for i = 0, 9 do
                 if wasKeyPressed(vkeys.VK_0 + i) or wasKeyPressed(vkeys.VK_NUMPAD0 + i) then 
                     calc_press_number(tostring(i)) 
                 end
             end
             
-            -- Backspace (Стереть 1 цифру)
+            -- Backspace (Г‘ГІГҐГ°ГҐГІГј 1 Г¶ГЁГґГ°Гі)
             if wasKeyPressed(vkeys.VK_BACK) then
                 if not calc_needs_reset and not calc_finished and #calc_display > 0 and calc_display ~= "0" then
                     calc_display = calc_display:sub(1, -2)
@@ -740,25 +740,25 @@ function main()
                 end
             end
             
-            -- Delete (Очистка AC)
+            -- Delete (ГЋГ·ГЁГ±ГІГЄГ  AC)
             if wasKeyPressed(vkeys.VK_DELETE) then calc_clear() end
             
-            -- Операторы (Numpad)
+            -- ГЋГЇГҐГ°Г ГІГ®Г°Г» (Numpad)
             if wasKeyPressed(vkeys.VK_ADD) then calc_press_op("+") end
             if wasKeyPressed(vkeys.VK_SUBTRACT) then calc_press_op("-") end
             if wasKeyPressed(vkeys.VK_MULTIPLY) then calc_press_op("*") end
             if wasKeyPressed(vkeys.VK_DIVIDE) then calc_press_op("/") end
             
-            -- Операторы (Основная клавиатура)
+            -- ГЋГЇГҐГ°Г ГІГ®Г°Г» (ГЋГ±Г­Г®ГўГ­Г Гї ГЄГ«Г ГўГЁГ ГІГіГ°Г )
             if isKeyDown(vkeys.VK_SHIFT) and wasKeyPressed(187) then calc_press_op("+") end -- Shift + "="
             if not isKeyDown(vkeys.VK_SHIFT) and wasKeyPressed(189) then calc_press_op("-") end -- "-"
             if isKeyDown(vkeys.VK_SHIFT) and wasKeyPressed(56) then calc_press_op("*") end -- Shift + "8"
-            if wasKeyPressed(191) then calc_press_op("/") end -- Слэш "/"
+            if wasKeyPressed(191) then calc_press_op("/") end -- Г‘Г«ГЅГё "/"
             
-            -- Равно (Enter)
+            -- ГђГ ГўГ­Г® (Enter)
             if wasKeyPressed(vkeys.VK_RETURN) then calc_calculate() end
             
-            -- Точка (Numpad и основная)
+            -- Г’Г®Г·ГЄГ  (Numpad ГЁ Г®Г±Г­Г®ГўГ­Г Гї)
             if wasKeyPressed(vkeys.VK_DECIMAL) or wasKeyPressed(190) then calc_press_number(".") end
         end
 
@@ -791,8 +791,8 @@ function main()
         else
             setCharCoordinates(PLAYER_PED, x, y, z + 5.0)
         end
-        addToast(u8"Лифт вызван", 2)
-        sampSendChat("/me вызвал лифт")
+        addToast(u8"Г‹ГЁГґГІ ГўГ»Г§ГўГ Г­", 2)
+        sampSendChat("/me ГўГ»Г§ГўГ Г« Г«ГЁГґГІ")
     end)
 
     sampRegisterChatCommand("liftd", function()
@@ -802,15 +802,15 @@ function main()
         else
             setCharCoordinates(PLAYER_PED, x, y, z - 5.0)
         end
-        addToast(u8"Лифт вызван", 2)
-        sampSendChat("/me вызвал лифт")
+        addToast(u8"Г‹ГЁГґГІ ГўГ»Г§ГўГ Г­", 2)
+        sampSendChat("/me ГўГ»Г§ГўГ Г« Г«ГЁГґГІ")
     end)
 
     sampRegisterChatCommand("animka", function()
         cmd_pop()
     end)
 
-    addToast(u8"Скрипт загружен. Введите /pravik", 2)
+    addToast(u8"Г‘ГЄГ°ГЁГЇГІ Г§Г ГЈГ°ГіГ¦ГҐГ­. Г‚ГўГҐГ¤ГЁГІГҐ /pravik", 2)
 
     lua_thread.create(function()
         while true do
@@ -850,17 +850,17 @@ function main()
 										t_q = t_q + (tonumber(po.queue) or 0)
 									end
 									
-									local targetNick = "Игрок"
+									local targetNick = "Г€ГЈГ°Г®ГЄ"
 									if pData.target then
 										local name = sampGetPlayerNickname(pData.target)
 										if name then targetNick = name end
 									end
 									
-									sampSendChat(string.format("/vr @%s Сервер: Vice-City | онлайн: %d/%d | очередь: %d", targetNick, t_on, t_max, t_q))
+									sampSendChat(string.format("/vr @%s Г‘ГҐГ°ГўГҐГ°: Vice-City | Г®Г­Г«Г Г©Г­: %d/%d | Г®Г·ГҐГ°ГҐГ¤Гј: %d", targetNick, t_on, t_max, t_q))
 									return
 								end
 							end
-							addToast(u8"Ошибка связи с серверами VC.", 3)
+							addToast(u8"ГЋГёГЁГЎГЄГ  Г±ГўГїГ§ГЁ Г± Г±ГҐГ°ГўГҐГ°Г Г¬ГЁ VC.", 3)
 						end)
 					elseif pType == "fwarn" then
 						sampSendChat(string.format("/fwarn %d %s // %s", pData.target, pData.reason, pData.author))
@@ -878,7 +878,7 @@ function main()
         end	
 
         if pending_login_notif > 0 then
-            addToast(pending_login_notif == 1 and u8"Первоначальная авторизация выполнена." or u8"Reconnect выполнен успешно.", 2)
+            addToast(pending_login_notif == 1 and u8"ГЏГҐГ°ГўГ®Г­Г Г·Г Г«ГјГ­Г Гї Г ГўГІГ®Г°ГЁГ§Г Г¶ГЁГї ГўГ»ГЇГ®Г«Г­ГҐГ­Г ." or u8"Reconnect ГўГ»ГЇГ®Г«Г­ГҐГ­ ГіГ±ГЇГҐГёГ­Г®.", 2)
             if pending_login_notif == 1 then is_initial_login = false end
             pending_login_notif = 0
         end
@@ -900,7 +900,7 @@ function main()
 end
 
 -- =========================
--- IMGUI РЕНДЕР И ОТРИСОВКА ВКЛАДОК
+-- IMGUI ГђГ…ГЌГ„Г…Гђ Г€ ГЋГ’ГђГ€Г‘ГЋГ‚ГЉГЂ Г‚ГЉГ‹ГЂГ„ГЋГЉ
 -- =========================
 local function RenderToasts(sw, sh, current_time)
     if #toasts == 0 then return end
@@ -946,7 +946,7 @@ local function RenderToasts(sw, sh, current_time)
 end
 
 local function RenderTabAuto()
-    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> АВТОМАТИЧЕСКАЯ ВЫДАЧА")
+    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> ГЂГ‚Г’ГЋГЊГЂГ’Г€Г—Г…Г‘ГЉГЂГџ Г‚Г›Г„ГЂГ—ГЂ")
     imgui.Spacing()
     
     if imgui.Checkbox(u8"/givesocial", givesocial_enabled) then saveConfig() end
@@ -960,41 +960,41 @@ local function RenderTabAuto()
         if not fractionrp_enabled[0] then fractionrp_cd_enabled[0] = false; saveConfig() end
     end
     imgui.SameLine(150)
-    if imgui.Checkbox(u8" Оповещение о КД", fractionrp_cd_enabled) then
+    if imgui.Checkbox(u8" ГЋГЇГ®ГўГҐГ№ГҐГ­ГЁГҐ Г® ГЉГ„", fractionrp_cd_enabled) then
         if not fractionrp_enabled[0] then fractionrp_cd_enabled[0] = false else saveConfig() end
     end
     
     imgui.Spacing(); imgui.Separator(); imgui.Spacing()
     
-    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> АВТО-ОТВЕТЧИК НА ТЕЛЕФОН")
-    if imgui.Checkbox(u8"Входящие вызовы", autophone_inc_enabled) then saveConfig() end
+    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> ГЂГ‚Г’ГЋ-ГЋГ’Г‚Г…Г’Г—Г€ГЉ ГЌГЂ Г’Г…Г‹Г…Г”ГЋГЌ")
+    if imgui.Checkbox(u8"Г‚ГµГ®Г¤ГїГ№ГЁГҐ ГўГ»Г§Г®ГўГ»", autophone_inc_enabled) then saveConfig() end
     if autophone_inc_enabled[0] then
         imgui.PushItemWidth(-1)
-        imgui.Text(u8"Ответ на входящий:")
+        imgui.Text(u8"ГЋГІГўГҐГІ Г­Г  ГўГµГ®Г¤ГїГ№ГЁГ©:")
         if imgui.InputText(u8"##inc_text", autophone_inc_text, ffi.sizeof(autophone_inc_text)) then saveConfig() end
         imgui.PopItemWidth()
         imgui.Spacing()
     end
 
-    if imgui.Checkbox(u8"Исходящие вызовы", autophone_out_enabled) then saveConfig() end
+    if imgui.Checkbox(u8"Г€Г±ГµГ®Г¤ГїГ№ГЁГҐ ГўГ»Г§Г®ГўГ»", autophone_out_enabled) then saveConfig() end
     if autophone_out_enabled[0] then
         imgui.PushItemWidth(-1)
-        imgui.Text(u8"Сообщение при исходящем:")
+        imgui.Text(u8"Г‘Г®Г®ГЎГ№ГҐГ­ГЁГҐ ГЇГ°ГЁ ГЁГ±ГµГ®Г¤ГїГ№ГҐГ¬:")
         if imgui.InputText(u8"##out_text", autophone_out_text, ffi.sizeof(autophone_out_text)) then saveConfig() end
         imgui.PopItemWidth()
     end
     
     imgui.Spacing(); imgui.Separator(); imgui.Spacing()
     
-    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> УПРАВЛЕНИЕ ФОРМАМИ")
-    if imgui.Checkbox(u8"Ловить формы на VC", vc_form_enabled) then saveConfig() end
+    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> Г“ГЏГђГЂГ‚Г‹Г…ГЌГ€Г… Г”ГЋГђГЊГЂГЊГ€")
+    if imgui.Checkbox(u8"Г‹Г®ГўГЁГІГј ГґГ®Г°Г¬Г» Г­Г  VC", vc_form_enabled) then saveConfig() end
     imgui.SameLine(180)
-    if imgui.Checkbox(u8"Ловить формы /fwarn", fwarn_form_enabled) then saveConfig() end
+    if imgui.Checkbox(u8"Г‹Г®ГўГЁГІГј ГґГ®Г°Г¬Г» /fwarn", fwarn_form_enabled) then saveConfig() end
     imgui.Spacing()
     
-    imgui.Text(u8"Кнопка принятия форм:")
+    imgui.Text(u8"ГЉГ­Г®ГЇГЄГ  ГЇГ°ГЁГ­ГїГІГЁГї ГґГ®Г°Г¬:")
     imgui.SameLine()
-    if imgui.Button(is_binding_hotkey and u8"Нажмите клавишу..." or u8(tostring(getKeyName(form_hotkey[0]))), imgui.ImVec2(150, 0)) then
+    if imgui.Button(is_binding_hotkey and u8"ГЌГ Г¦Г¬ГЁГІГҐ ГЄГ«Г ГўГЁГёГі..." or u8(tostring(getKeyName(form_hotkey[0]))), imgui.ImVec2(150, 0)) then
         is_binding_hotkey = true
     end
 
@@ -1008,44 +1008,44 @@ local function RenderTabAuto()
 end
 
 local function RenderTabStroy()
-    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> УМНАЯ ПРОВЕРКА СТРОЯ")
+    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> Г“ГЊГЌГЂГџ ГЏГђГЋГ‚Г…ГђГЉГЂ Г‘Г’ГђГЋГџ")
     imgui.Spacing()
     imgui.PushItemWidth(200)
-    imgui.Text(u8"Причина выговора:")
+    imgui.Text(u8"ГЏГ°ГЁГ·ГЁГ­Г  ГўГ»ГЈГ®ГўГ®Г°Г :")
     imgui.InputText("##punishreason", punish_reason, ffi.sizeof(punish_reason))
     imgui.Spacing()
-    imgui.Text(u8"Радиус сбора (метры):")
+    imgui.Text(u8"ГђГ Г¤ГЁГіГ± Г±ГЎГ®Г°Г  (Г¬ГҐГІГ°Г»):")
     imgui.SliderFloat("##radius", check_stroy_radius, 5.0, 100.0)
     imgui.Spacing()
-    imgui.Text(u8"Пауза между выдачей (сек):")
+    imgui.Text(u8"ГЏГ ГіГ§Г  Г¬ГҐГ¦Г¤Гі ГўГ»Г¤Г Г·ГҐГ© (Г±ГҐГЄ):")
     imgui.SliderInt("##pdelay", punish_delay, 2, 10)
     imgui.PopItemWidth()
 
     imgui.Spacing(); imgui.Separator(); imgui.Spacing()
-    imgui.Checkbox(u8"Игнорировать ст. состав 8+", ignore_rank_8_plus)
-    imgui.Checkbox(u8"Игнорировать тех, у кого 2+ выговора", ignore_2_fwarns)
+    imgui.Checkbox(u8"Г€ГЈГ­Г®Г°ГЁГ°Г®ГўГ ГІГј Г±ГІ. Г±Г®Г±ГІГ Гў 8+", ignore_rank_8_plus)
+    imgui.Checkbox(u8"Г€ГЈГ­Г®Г°ГЁГ°Г®ГўГ ГІГј ГІГҐГµ, Гі ГЄГ®ГЈГ® 2+ ГўГ»ГЈГ®ГўГ®Г°Г ", ignore_2_fwarns)
     imgui.Spacing(); imgui.Spacing()
     
-    if imgui.Button(u8"НАЧАТЬ ПРОВЕРКУ И ВЫДАЧУ", imgui.ImVec2(-1, 45)) then
+    if imgui.Button(u8"ГЌГЂГ—ГЂГ’Гњ ГЏГђГЋГ‚Г…ГђГЉГ“ Г€ Г‚Г›Г„ГЂГ—Г“", imgui.ImVec2(-1, 45)) then
         if not is_checking_stroy then
             nearby_players_list = getPlayersInRadius(check_stroy_radius[0])
             current_punish_list = {}; page_counter = 1; is_checking_stroy = true
             sampSendChat("/members")
-            addToast(u8"Проверка строя. Не закрывайте диалоги...", 1)
+            addToast(u8"ГЏГ°Г®ГўГҐГ°ГЄГ  Г±ГІГ°Г®Гї. ГЌГҐ Г§Г ГЄГ°Г»ГўГ Г©ГІГҐ Г¤ГЁГ Г«Г®ГЈГЁ...", 1)
         else
-            addToast(u8"Проверка уже идет!", 3)
+            addToast(u8"ГЏГ°Г®ГўГҐГ°ГЄГ  ГіГ¦ГҐ ГЁГ¤ГҐГІ!", 3)
         end
     end
 
     if show_whitelist then
         imgui.Spacing(); imgui.Separator(); imgui.Spacing()
-        imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> ВАЙТ-ЛИСТ")
+        imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> Г‚ГЂГ‰Г’-Г‹Г€Г‘Г’")
 		imgui.PushItemWidth(150)
-        imgui.InputTextWithHint(u8"##wl_input", u8"ID или Ник", whitelist_input, ffi.sizeof(whitelist_input))
+        imgui.InputTextWithHint(u8"##wl_input", u8"ID ГЁГ«ГЁ ГЌГЁГЄ", whitelist_input, ffi.sizeof(whitelist_input))
         imgui.PopItemWidth()
         imgui.SameLine()
         
-		if imgui.Button(u8"Добавить", imgui.ImVec2(80, 0)) then
+		if imgui.Button(u8"Г„Г®ГЎГ ГўГЁГІГј", imgui.ImVec2(80, 0)) then
             local input_str = u8:decode(ffi.string(whitelist_input)):match("^%s*(.-)%s*$")
             
             if input_str ~= "" then
@@ -1060,7 +1060,7 @@ local function RenderTabStroy()
                             target_nick = name
                         end
                     else
-                        addToast(u8"Ошибка: Игрок с таким ID не в сети!", 3)
+                        addToast(u8"ГЋГёГЁГЎГЄГ : Г€ГЈГ°Г®ГЄ Г± ГІГ ГЄГЁГ¬ ID Г­ГҐ Гў Г±ГҐГІГЁ!", 3)
                         target_nick = nil
                     end
                 end
@@ -1069,17 +1069,17 @@ local function RenderTabStroy()
                     cfg.whitelist[target_nick] = true
                     inicfg.save(cfg, "PravikHelper.ini")
                     whitelist_input[0] = 0
-                    addToast(u8("В вайт-лист добавлен: " .. target_nick), 2)
+                    addToast(u8("Г‚ ГўГ Г©ГІ-Г«ГЁГ±ГІ Г¤Г®ГЎГ ГўГ«ГҐГ­: " .. target_nick), 2)
                 end
             end
         end
 
-        if imgui.TreeNodeStr(u8"Список исключений") then
+        if imgui.TreeNodeStr(u8"Г‘ГЇГЁГ±Г®ГЄ ГЁГ±ГЄГ«ГѕГ·ГҐГ­ГЁГ©") then
             local to_remove = nil
             for nick, _ in pairs(cfg.whitelist) do
                 imgui.Text(u8(tostring(nick)))
                 imgui.SameLine(160)
-                if imgui.Button(u8("Удалить##" .. tostring(nick))) then to_remove = nick end
+                if imgui.Button(u8("Г“Г¤Г Г«ГЁГІГј##" .. tostring(nick))) then to_remove = nick end
             end
             if to_remove then cfg.whitelist[to_remove] = nil; inicfg.save(cfg, "PravikHelper.ini") end
             imgui.TreePop()
@@ -1088,29 +1088,29 @@ local function RenderTabStroy()
 end
 
 local function RenderTabSpawn()
-    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> АВТО-ВХОД, ФОРМА И СПАВН")
-	imgui.TextColored(imgui.ImVec4(0.70, 0, 0, 2.00), u8"РАБОТАЕТ ТОЛЬКО С СТАРОЙ АВТОРИЗАЦИЕЙ")
+    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> ГЂГ‚Г’ГЋ-Г‚Г•ГЋГ„, Г”ГЋГђГЊГЂ Г€ Г‘ГЏГЂГ‚ГЌ")
+	imgui.TextColored(imgui.ImVec4(0.70, 0, 0, 2.00), u8"ГђГЂГЃГЋГ’ГЂГ…Г’ Г’ГЋГ‹ГњГЉГЋ Г‘ Г‘Г’ГЂГђГЋГ‰ ГЂГ‚Г’ГЋГђГ€Г‡ГЂГ–Г€Г…Г‰")
     imgui.Spacing()
-    if imgui.Checkbox(u8"Авто-логин", autologin_enabled) then saveConfig() end
+    if imgui.Checkbox(u8"ГЂГўГІГ®-Г«Г®ГЈГЁГ­", autologin_enabled) then saveConfig() end
     
     if autologin_enabled[0] then
         imgui.SameLine()
         imgui.PushItemWidth(150)
         local pass_flags = show_password_toggle and 0 or imgui.InputTextFlags.Password
-        if imgui.InputTextWithHint(u8"##loginpass", u8"Пароль", autologin_password, ffi.sizeof(autologin_password), pass_flags) then saveConfig() end
+        if imgui.InputTextWithHint(u8"##loginpass", u8"ГЏГ Г°Г®Г«Гј", autologin_password, ffi.sizeof(autologin_password), pass_flags) then saveConfig() end
         imgui.PopItemWidth()
         imgui.SameLine()
-        if imgui.Button(show_password_toggle and u8"Скрыть" or u8"Показать") then show_password_toggle = not show_password_toggle end
+        if imgui.Button(show_password_toggle and u8"Г‘ГЄГ°Г»ГІГј" or u8"ГЏГ®ГЄГ Г§Г ГІГј") then show_password_toggle = not show_password_toggle end
     end
     
     imgui.Spacing(); imgui.Separator(); imgui.Spacing()
-    if imgui.Checkbox(u8"Авто-переодевание", autouniform_enabled) then saveConfig() end
+    if imgui.Checkbox(u8"ГЂГўГІГ®-ГЇГҐГ°ГҐГ®Г¤ГҐГўГ Г­ГЁГҐ", autouniform_enabled) then saveConfig() end
     imgui.SameLine(220)
-    if imgui.Checkbox(u8"Отбегать после формы", autorunaway_enabled) then saveConfig() end
+    if imgui.Checkbox(u8"ГЋГІГЎГҐГЈГ ГІГј ГЇГ®Г±Г«ГҐ ГґГ®Г°Г¬Г»", autorunaway_enabled) then saveConfig() end
     imgui.Spacing()
-    if imgui.Checkbox(u8"Авто-спавн при входе", autospawn_gov_enabled) then saveConfig() end
+    if imgui.Checkbox(u8"ГЂГўГІГ®-Г±ГЇГ ГўГ­ ГЇГ°ГЁ ГўГµГ®Г¤ГҐ", autospawn_gov_enabled) then saveConfig() end
     imgui.Spacing(); imgui.Separator(); imgui.Spacing()
-    if imgui.Checkbox(u8"Умный спавн", autorec_enabled) then saveConfig() end
+    if imgui.Checkbox(u8"Г“Г¬Г­Г»Г© Г±ГЇГ ГўГ­", autorec_enabled) then saveConfig() end
     
 	if autorec_enabled[0] then
         imgui.Spacing()
@@ -1129,7 +1129,7 @@ local function RenderTabSpawn()
                 saveConfig() 
             end
         else
-            imgui.TextDisabled(u8"Список спавнов пуст")
+            imgui.TextDisabled(u8"Г‘ГЇГЁГ±Г®ГЄ Г±ГЇГ ГўГ­Г®Гў ГЇГіГ±ГІ")
         end
         
         imgui.PopItemWidth()
@@ -1137,15 +1137,15 @@ local function RenderTabSpawn()
 
     imgui.Spacing(); imgui.Separator(); imgui.Spacing()
     imgui.PushItemWidth(100)
-    if imgui.InputInt(u8"ID рабочего скина", workSkinId) then saveConfig() end
+    if imgui.InputInt(u8"ID Г°Г ГЎГ®Г·ГҐГЈГ® Г±ГЄГЁГ­Г ", workSkinId) then saveConfig() end
     imgui.PopItemWidth()
     imgui.Spacing()
-    imgui.TextDisabled(u8("Координаты: " .. pickupX .. ", " .. pickupY .. ", " .. pickupZ))
-    imgui.TextDisabled(u8"1-3: 164 | 3-4: 163 | 5-8: 57 | 9+: 147 | Ж: 141")
+    imgui.TextDisabled(u8("ГЉГ®Г®Г°Г¤ГЁГ­Г ГІГ»: " .. pickupX .. ", " .. pickupY .. ", " .. pickupZ))
+    imgui.TextDisabled(u8"1-3: 164 | 3-4: 163 | 5-8: 57 | 9+: 147 | Г†: 141")
 end
 
 local function RenderTabUtils()
-    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"/vc - очередь на Vice-City\n/lift - вызвать лифт вверх\n/liftd - вызвать лифт вниз\n/calc - калькулятор как на iphone 17 pro max 2tb")
+    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"/vc - Г®Г·ГҐГ°ГҐГ¤Гј Г­Г  Vice-City\n/lift - ГўГ»Г§ГўГ ГІГј Г«ГЁГґГІ ГўГўГҐГ°Гµ\n/liftd - ГўГ»Г§ГўГ ГІГј Г«ГЁГґГІ ГўГ­ГЁГ§\n/calc - ГЄГ Г«ГјГЄГіГ«ГїГІГ®Г° ГЄГ ГЄ Г­Г  iphone 17 pro max 2tb")
 	imgui.Separator()
     
     if imgui.Checkbox(u8"ESC Bypass", bypass_esc_enabled) then saveConfig() end
@@ -1154,16 +1154,16 @@ local function RenderTabUtils()
     if imgui.IsItemHovered() then
         imgui.BeginTooltip() 
         imgui.PushTextWrapPos(350.0) 
-        imgui.TextUnformatted(u8"Функция возвращает старое торможение на ESC\nБез домкратов и других расходников")
+        imgui.TextUnformatted(u8"Г”ГіГ­ГЄГ¶ГЁГї ГўГ®Г§ГўГ°Г Г№Г ГҐГІ Г±ГІГ Г°Г®ГҐ ГІГ®Г°Г¬Г®Г¦ГҐГ­ГЁГҐ Г­Г  ESC\nГЃГҐГ§ Г¤Г®Г¬ГЄГ°Г ГІГ®Гў ГЁ Г¤Г°ГіГЈГЁГµ Г°Г Г±ГµГ®Г¤Г­ГЁГЄГ®Гў")
         imgui.PopTextWrapPos()
         imgui.EndTooltip() 
     end
     
-    if imgui.Checkbox(u8"сбив нарко чатом", sbiv_chat_enabled) then saveConfig() end
+    if imgui.Checkbox(u8"Г±ГЎГЁГў Г­Г Г°ГЄГ® Г·Г ГІГ®Г¬", sbiv_chat_enabled) then saveConfig() end
     if sbiv_chat_enabled[0] then
         imgui.SameLine(170)
 		imgui.PushItemWidth(150)
-        if imgui.InputTextWithHint(u8"##sbivtext", u8"Текст", sbiv_chat_text, ffi.sizeof(sbiv_chat_text)) then saveConfig() end
+        if imgui.InputTextWithHint(u8"##sbivtext", u8"Г’ГҐГЄГ±ГІ", sbiv_chat_text, ffi.sizeof(sbiv_chat_text)) then saveConfig() end
         imgui.PopItemWidth()
     end
     
@@ -1171,7 +1171,7 @@ local function RenderTabUtils()
     if domkrat_bind_enabled[0] then
         imgui.SameLine(170)
 		imgui.PushItemWidth(100)
-        if imgui.Button(is_binding_domkrat and u8"Нажмите клавишу..." or u8(tostring(getKeyName(domkrat_hotkey[0]))), imgui.ImVec2(150, 0)) then
+        if imgui.Button(is_binding_domkrat and u8"ГЌГ Г¦Г¬ГЁГІГҐ ГЄГ«Г ГўГЁГёГі..." or u8(tostring(getKeyName(domkrat_hotkey[0]))), imgui.ImVec2(150, 0)) then
             is_binding_domkrat = true
         end
 
@@ -1189,7 +1189,7 @@ local function RenderTabUtils()
 end
 
 local function RenderTabTelegram()
-    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> ИНТЕГРАЦИЯ TELEGRAM")
+    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> Г€ГЌГ’Г…ГѓГђГЂГ–Г€Гџ TELEGRAM")
     imgui.Spacing()
     
     if imgui.Checkbox(u8"Telegram", tg_enabled) then saveConfig() end
@@ -1198,34 +1198,34 @@ local function RenderTabTelegram()
         if imgui.IsItemHovered() then
             imgui.BeginTooltip() 
             imgui.PushTextWrapPos(350.0) 
-            imgui.TextUnformatted(u8"@botfather > Создать бота > Копируем токен\nВставляем токен вниз и пишем боту в лс /start")
+            imgui.TextUnformatted(u8"@botfather > Г‘Г®Г§Г¤Г ГІГј ГЎГ®ГІГ  > ГЉГ®ГЇГЁГ°ГіГҐГ¬ ГІГ®ГЄГҐГ­\nГ‚Г±ГІГ ГўГ«ГїГҐГ¬ ГІГ®ГЄГҐГ­ ГўГ­ГЁГ§ ГЁ ГЇГЁГёГҐГ¬ ГЎГ®ГІГі Гў Г«Г± /start")
             imgui.PopTextWrapPos()
             imgui.EndTooltip() 
         end
 	
     if tg_enabled[0] then
         imgui.SameLine(250)
-        if imgui.Checkbox(u8"Зеркало API", tg_custom_api_enabled) then saveConfig() end
+        if imgui.Checkbox(u8"Г‡ГҐГ°ГЄГ Г«Г® API", tg_custom_api_enabled) then saveConfig() end
         imgui.SameLine()
         imgui.TextDisabled("?")
         if imgui.IsItemHovered() then
             imgui.BeginTooltip() 
             imgui.PushTextWrapPos(350.0) 
-            imgui.TextUnformatted(u8"Включаем только если вы в РФ и у вас заблокирован ТГ\nВ случае если ссылка не появилась автоматически, вставьте вот эту:\nhttps://tg-pravik-proxy.renaticus13.workers.dev/")
+            imgui.TextUnformatted(u8"Г‚ГЄГ«ГѕГ·Г ГҐГ¬ ГІГ®Г«ГјГЄГ® ГҐГ±Г«ГЁ ГўГ» Гў ГђГ” ГЁ Гі ГўГ Г± Г§Г ГЎГ«Г®ГЄГЁГ°Г®ГўГ Г­ Г’Гѓ\nГ‚ Г±Г«ГіГ·Г ГҐ ГҐГ±Г«ГЁ Г±Г±Г»Г«ГЄГ  Г­ГҐ ГЇГ®ГїГўГЁГ«Г Г±Гј Г ГўГІГ®Г¬Г ГІГЁГ·ГҐГ±ГЄГЁ, ГўГ±ГІГ ГўГјГІГҐ ГўГ®ГІ ГЅГІГі:\nhttps://tg-pravik-proxy.renaticus13.workers.dev/")
             imgui.PopTextWrapPos()
             imgui.EndTooltip() 
         end
         
         if tg_custom_api_enabled[0] then
             imgui.Spacing()
-            imgui.Text(u8"Сервер API:")
+            imgui.Text(u8"Г‘ГҐГ°ГўГҐГ° API:")
             imgui.PushItemWidth(285)
             if imgui.InputText("##tgapi", tg_api_url, ffi.sizeof(tg_api_url)) then saveConfig() end
             imgui.PopItemWidth()
         end
         imgui.Spacing()
         
-        imgui.Text(u8"Токен бота:")
+        imgui.Text(u8"Г’Г®ГЄГҐГ­ ГЎГ®ГІГ :")
         imgui.PushItemWidth(250)
         if imgui.InputText("##tgtoken", tg_token, ffi.sizeof(tg_token), imgui.InputTextFlags.Password) then saveConfig() end
         imgui.PopItemWidth()
@@ -1233,15 +1233,15 @@ local function RenderTabTelegram()
         imgui.Spacing(); imgui.Separator(); imgui.Spacing()
         
         if tg_chat_id == 0 then
-            imgui.TextColored(imgui.ImVec4(1.0, 1.0, 0.0, 1.0), u8"Бот не привязан!")
-            imgui.Text(u8"Напишите боту любое сообщение в Telegram для авторизации.")
+            imgui.TextColored(imgui.ImVec4(1.0, 1.0, 0.0, 1.0), u8"ГЃГ®ГІ Г­ГҐ ГЇГ°ГЁГўГїГ§Г Г­!")
+            imgui.Text(u8"ГЌГ ГЇГЁГёГЁГІГҐ ГЎГ®ГІГі Г«ГѕГЎГ®ГҐ Г±Г®Г®ГЎГ№ГҐГ­ГЁГҐ Гў Telegram Г¤Г«Гї Г ГўГІГ®Г°ГЁГ§Г Г¶ГЁГЁ.")
         else
-            imgui.TextColored(imgui.ImVec4(0.0, 1.0, 0.0, 1.0), u8("Аккаунт привязан!\nChat ID: " .. tostring(tg_chat_id) .. ""))
+            imgui.TextColored(imgui.ImVec4(0.0, 1.0, 0.0, 1.0), u8("ГЂГЄГЄГ ГіГ­ГІ ГЇГ°ГЁГўГїГ§Г Г­!\nChat ID: " .. tostring(tg_chat_id) .. ""))
             imgui.Spacing()
-            if imgui.Button(u8"Сбросить привязку", imgui.ImVec2(-1, 30)) then
+            if imgui.Button(u8"Г‘ГЎГ°Г®Г±ГЁГІГј ГЇГ°ГЁГўГїГ§ГЄГі", imgui.ImVec2(-1, 30)) then
                 tg_chat_id = 0
                 saveConfig()
-                addToast(u8"Привязка сброшена. Напишите боту снова.", 2)
+                addToast(u8"ГЏГ°ГЁГўГїГ§ГЄГ  Г±ГЎГ°Г®ГёГҐГ­Г . ГЌГ ГЇГЁГёГЁГІГҐ ГЎГ®ГІГі Г±Г­Г®ГўГ .", 2)
             end
         end
     end
@@ -1263,9 +1263,9 @@ function cmd_pop()
         
         if hasAnimationLoaded(animIfp) then
             taskPlayAnim(PLAYER_PED, animName, animIfp, 4.0, true, false, false, false, -1)
-            addToast(u8"Анимация воспроизведена", 2)
+            addToast(u8"ГЂГ­ГЁГ¬Г Г¶ГЁГї ГўГ®Г±ГЇГ°Г®ГЁГ§ГўГҐГ¤ГҐГ­Г ", 2)
         else
-            addToast(u8"Анимация не воспроизведена", 2)
+            addToast(u8"ГЂГ­ГЁГ¬Г Г¶ГЁГї Г­ГҐ ГўГ®Г±ГЇГ°Г®ГЁГ§ГўГҐГ¤ГҐГ­Г ", 2)
         end
     end)
 end
@@ -1285,13 +1285,13 @@ imgui.OnFrame(
             imgui.SetNextWindowSize(imgui.ImVec2(630, 435), imgui.Cond.Always)
             imgui.SetNextWindowPos(imgui.ImVec2(sw / 2 - 315, sh / 2 - 220), imgui.Cond.FirstUseEver)
             
-			-- Получаем статус (res) и твой ID (myId)
+			-- ГЏГ®Г«ГіГ·Г ГҐГ¬ Г±ГІГ ГІГіГ± (res) ГЁ ГІГўГ®Г© ID (myId)
             local res, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
-            local window_title = "PravikHelper##MainWindow" -- Значение по умолчанию до загрузки сампа
+            local window_title = "PravikHelper##MainWindow" -- Г‡Г­Г Г·ГҐГ­ГЁГҐ ГЇГ® ГіГ¬Г®Г«Г·Г Г­ГЁГѕ Г¤Г® Г§Г ГЈГ°ГіГ§ГЄГЁ Г±Г Г¬ГЇГ 
             
             if res then
                 local myNick = sampGetPlayerNickname(myId) or "Player"
-                -- Формируем нужный текст: "Nick_Name ID: 222" и прячем тег ##MainWindow
+                -- Г”Г®Г°Г¬ГЁГ°ГіГҐГ¬ Г­ГіГ¦Г­Г»Г© ГІГҐГЄГ±ГІ: "Nick_Name ID: 222" ГЁ ГЇГ°ГїГ·ГҐГ¬ ГІГҐГЈ ##MainWindow
                 window_title = string.format("%s ID: %d##MainWindow", myNick, myId)
             end
 
@@ -1326,11 +1326,11 @@ imgui.OnFrame(
 					imgui.PopStyleColor(2)
 				end
 
-                DrawTabButton(u8" АВТО-ВЫДАЧА", 1)
-                DrawTabButton(u8" ПРОВЕРКА СТРОЯ", 2)
-                if show_forma_tab then DrawTabButton(u8" ФОРМА", 3) end
-                DrawTabButton(u8" УТИЛИТЫ", 4)
-                DrawTabButton(u8" ТЕЛЕГРАМ", 5)
+                DrawTabButton(u8" ГЂГ‚Г’ГЋ-Г‚Г›Г„ГЂГ—ГЂ", 1)
+                DrawTabButton(u8" ГЏГђГЋГ‚Г…ГђГЉГЂ Г‘Г’ГђГЋГџ", 2)
+                if show_forma_tab then DrawTabButton(u8" Г”ГЋГђГЊГЂ", 3) end
+                DrawTabButton(u8" Г“Г’Г€Г‹Г€Г’Г›", 4)
+                DrawTabButton(u8" Г’Г…Г‹Г…ГѓГђГЂГЊ", 5)
                 
                 imgui.EndChild()
                 imgui.SameLine()
@@ -1347,9 +1347,9 @@ imgui.OnFrame(
                 imgui.EndChild()
 
                 imgui.Spacing()
-                local textWidth = imgui.CalcTextSize(u8"Скрипт создан при поддержке лучшего Президента Viktor Yakunovich").x
+                local textWidth = imgui.CalcTextSize(u8"Г‘ГЄГ°ГЁГЇГІ Г±Г®Г§Г¤Г Г­ ГЇГ°ГЁ ГЇГ®Г¤Г¤ГҐГ°Г¦ГЄГҐ Г«ГіГ·ГёГҐГЈГ® ГЏГ°ГҐГ§ГЁГ¤ГҐГ­ГІГ  Viktor Yakunovich").x
                 imgui.SetCursorPosX((imgui.GetWindowWidth() - textWidth) * 0.5)
-                imgui.TextColored(imgui.ImVec4(0.5, 0.5, 0.5, 1.0), u8"Скрипт создан при поддержке лучшего Президента Viktor Yakunovich")
+                imgui.TextColored(imgui.ImVec4(0.5, 0.5, 0.5, 1.0), u8"Г‘ГЄГ°ГЁГЇГІ Г±Г®Г§Г¤Г Г­ ГЇГ°ГЁ ГЇГ®Г¤Г¤ГҐГ°Г¦ГЄГҐ Г«ГіГ·ГёГҐГЈГ® ГЏГ°ГҐГ§ГЁГ¤ГҐГ­ГІГ  Viktor Yakunovich")
                 
                 if imgui.IsItemClicked() then
                     if os.clock() - last_secret_click > 1.0 then secret_click_count = 1 else secret_click_count = secret_click_count + 1 end
@@ -1361,11 +1361,11 @@ imgui.OnFrame(
             end
         end
 -- =========================
-        -- ОКНО КАЛЬКУЛЯТОРА
+        -- ГЋГЉГЌГЋ ГЉГЂГ‹ГњГЉГ“Г‹ГџГ’ГЋГђГЂ
         -- =========================
         if calc_window_state[0] then
             
-            -- Независимая обработка клавиатуры
+            -- ГЌГҐГ§Г ГўГЁГ±ГЁГ¬Г Гї Г®ГЎГ°Г ГЎГ®ГІГЄГ  ГЄГ«Г ГўГЁГ ГІГіГ°Г»
             if not sampIsChatInputActive() and not sampIsDialogActive() and not isSampfuncsConsoleActive() and not imgui.GetIO().WantTextInput then
                 local shift = isKeyDown(vkeys.VK_SHIFT)
                 
@@ -1397,20 +1397,20 @@ imgui.OnFrame(
                 if wasKeyPressed(vkeys.VK_DECIMAL) or (not shift and wasKeyPressed(190)) then calc_press_number(".") end
             end
 
-            -- Независимая отрисовка UI
+            -- ГЌГҐГ§Г ГўГЁГ±ГЁГ¬Г Гї Г®ГІГ°ГЁГ±Г®ГўГЄГ  UI
             imgui.SetNextWindowSize(imgui.ImVec2(340, 520), imgui.Cond.Always) 
-            if imgui.Begin(u8"Калькулятор##Calc", calc_window_state, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoCollapse) then
+            if imgui.Begin(u8"ГЉГ Г«ГјГЄГіГ«ГїГІГ®Г°##Calc", calc_window_state, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoCollapse) then
                 
                 local window_width = imgui.GetWindowWidth()
                 local cur_y = imgui.GetCursorPosY()
 
-                -- История слева
+                -- Г€Г±ГІГ®Г°ГЁГї Г±Г«ГҐГўГ 
                 imgui.SetCursorPos(imgui.ImVec2(15, cur_y))
-                imgui.TextColored(imgui.ImVec4(0.7, 0.7, 0.7, 1.0), u8"[История]")
+                imgui.TextColored(imgui.ImVec4(0.7, 0.7, 0.7, 1.0), u8"[Г€Г±ГІГ®Г°ГЁГї]")
                 if imgui.IsItemHovered() then
                     imgui.BeginTooltip()
                     if #calc_history_log == 0 then
-                        imgui.Text(u8"История пуста")
+                        imgui.Text(u8"Г€Г±ГІГ®Г°ГЁГї ГЇГіГ±ГІГ ")
                     else
                         for _, eq in ipairs(calc_history_log) do
                             imgui.Text(eq)
@@ -1419,14 +1419,14 @@ imgui.OnFrame(
                     imgui.EndTooltip()
                 end
                 
-                -- История текущего действия (справа)
+                -- Г€Г±ГІГ®Г°ГЁГї ГІГҐГЄГіГ№ГҐГЈГ® Г¤ГҐГ©Г±ГІГўГЁГї (Г±ГЇГ°Г ГўГ )
                 local history_width = imgui.CalcTextSize(calc_history).x
                 imgui.SetCursorPos(imgui.ImVec2(window_width - history_width - 15, cur_y))
                 imgui.TextColored(imgui.ImVec4(0.5, 0.5, 0.5, 1.0), calc_history)
                 
                 imgui.SetCursorPosY(cur_y + 20)
 
-                -- Основной дисплей
+                -- ГЋГ±Г­Г®ГўГ­Г®Г© Г¤ГЁГ±ГЇГ«ГҐГ©
                 if font_large then imgui.PushFont(font_large) end
                 local text_width = imgui.CalcTextSize(calc_display).x
                 imgui.SetCursorPosX(window_width - text_width - 15)
@@ -1512,7 +1512,7 @@ imgui.OnFrame(
 )
 
 -- =========================
--- ОБХОД ESC (ПАКЕТЫ)
+-- ГЋГЃГ•ГЋГ„ ESC (ГЏГЂГЉГ…Г’Г›)
 -- =========================
 function onSendPacket(id, bs, priority, reliability, orderingChannel)
     if bypass_esc_enabled[0] and id == 220 then
@@ -1532,14 +1532,14 @@ function onSendPacket(id, bs, priority, reliability, orderingChannel)
 end
 
 -- =========================
--- СОБЫТИЯ SAMP (EVENTS)
+-- Г‘ГЋГЃГ›Г’Г€Гџ SAMP (EVENTS)
 -- =========================
 function sampev.onSendSpawn()
     if not autouniform_enabled[0] then return end
     lua_thread.create(function()
         wait(3000) 
         if getCharModel(PLAYER_PED) ~= workSkinId[0] then
-            addToast(u8"Я не в форме. Бегу к пикапу...", 1)
+            addToast(u8"Гџ Г­ГҐ Гў ГґГ®Г°Г¬ГҐ. ГЃГҐГЈГі ГЄ ГЇГЁГЄГ ГЇГі...", 1)
             disable_col = true 
             taskGoStraightToCoord(PLAYER_PED, pickupX, pickupY, pickupZ, 4, -1)
             
@@ -1547,24 +1547,24 @@ function sampev.onSendSpawn()
             while getDistanceBetweenCoords2d(pickupX, pickupY, getCharCoordinates(PLAYER_PED)) > 1.2 do
                 wait(100)
                 if os.time() > timeout then
-                    addToast(u8"Ошибка: не смог добежать до пикапа.", 3)
+                    addToast(u8"ГЋГёГЁГЎГЄГ : Г­ГҐ Г±Г¬Г®ГЈ Г¤Г®ГЎГҐГ¦Г ГІГј Г¤Г® ГЇГЁГЄГ ГЇГ .", 3)
                     clearCharTasks(PLAYER_PED); disable_col = false 
                     return 
                 end
             end
             
             clearCharTasks(PLAYER_PED)
-            addToast(u8"Добежал. Нажимаю ALT...", 1)
+            addToast(u8"Г„Г®ГЎГҐГ¦Г Г«. ГЌГ Г¦ГЁГ¬Г Гѕ ALT...", 1)
             press_alt_sync = true; wait(500); press_alt_sync = false; wait(1000) 
             sendCefPacket(); wait(1000) 
             
             if autorec_enabled[0] then
                 disable_col = false; next_spawn_after_rec = true
-                addToast(u8"Переоделся. Выполняю /rec...", 2)
+                addToast(u8"ГЏГҐГ°ГҐГ®Г¤ГҐГ«Г±Гї. Г‚Г»ГЇГ®Г«Г­ГїГѕ /rec...", 2)
                 sampProcessChatInput("/rec")
             else
                 if autorunaway_enabled[0] then
-                    addToast(u8"Переоделся. Отбегаю...", 1)
+                    addToast(u8"ГЏГҐГ°ГҐГ®Г¤ГҐГ«Г±Гї. ГЋГІГЎГҐГЈГ Гѕ...", 1)
                     local targetX, targetY, targetZ = 1500.3088, -1284.8411, 113.8064
                     taskGoStraightToCoord(PLAYER_PED, targetX, targetY, targetZ, 4, -1)
                     local run_timeout = os.time() + 5 
@@ -1572,7 +1572,7 @@ function sampev.onSendSpawn()
                         wait(100); if os.time() > run_timeout then break end
                     end
                     clearCharTasks(PLAYER_PED)
-                else addToast(u8"Успешно переоделся.", 2) end
+                else addToast(u8"Г“Г±ГЇГҐГёГ­Г® ГЇГҐГ°ГҐГ®Г¤ГҐГ«Г±Гї.", 2) end
                 disable_col = false 
             end
         end
@@ -1585,7 +1585,7 @@ function sampev.onServerMessage(color, text)
 
     if is_radio then
         if hex_color == "2db043" or text:lower():find("{2db043}") then
-            if text:find("[Сс][Тт][Рр][Оо][Йй]") or text:find("[Яя][Вв][Кк][Уу]") or text:find("[Вв][Ыы][Гг][Оо][Вв][Оо][Рр]") or text:find("[Лл][Ее][Кк][Цц][Ии][Яя]") or text:find("[Сс][Уу][Дд][Ее][Бб][Нн][Аа][Яя]") or text:find("[Вв][Нн][Ии][Мм][Аа][Нн][Ии][Ее]") or text:find("[Сс][Уу][Дд]") then
+            if text:find("[Г‘Г±][Г’ГІ][ГђГ°][ГЋГ®][Г‰Г©]") or text:find("[ГџГї][Г‚Гў][ГЉГЄ][Г“Гі]") or text:find("[Г‚Гў][Г›Г»][ГѓГЈ][ГЋГ®][Г‚Гў][ГЋГ®][ГђГ°]") or text:find("[Г‹Г«][Г…ГҐ][ГЉГЄ][Г–Г¶][Г€ГЁ][ГџГї]") or text:find("[Г‘Г±][Г“Гі][Г„Г¤][Г…ГҐ][ГЃГЎ][ГЌГ­][ГЂГ ][ГџГї]") or text:find("[Г‚Гў][ГЌГ­][Г€ГЁ][ГЊГ¬][ГЂГ ][ГЌГ­][Г€ГЁ][Г…ГҐ]") or text:find("[Г‘Г±][Г“Гі][Г„Г¤]") then
                 if os.clock() - last_tg_alert_time > 10.0 then 
                     last_tg_alert_time = os.clock() 
                     lua_thread.create(function() sendToTelegram(text) end)
@@ -1595,8 +1595,8 @@ function sampev.onServerMessage(color, text)
     end
 
     if fractionrp_enabled[0] and fractionrp_cd_enabled[0] then
-        local cd = text:match('^%[Ошибка%] {ffffff}После прошедшего подтверждение не прошло 3 часа. {C0C0C0}%(Осталось: (.+)%)')
-        if cd then sampSendChat('/n У вас КД на /fractionrp! Осталось ' .. cd) end
+        local cd = text:match('^%[ГЋГёГЁГЎГЄГ %] {ffffff}ГЏГ®Г±Г«ГҐ ГЇГ°Г®ГёГҐГ¤ГёГҐГЈГ® ГЇГ®Г¤ГІГўГҐГ°Г¦Г¤ГҐГ­ГЁГҐ Г­ГҐ ГЇГ°Г®ГёГ«Г® 3 Г·Г Г±Г . {C0C0C0}%(ГЋГ±ГІГ Г«Г®Г±Гј: (.+)%)')
+        if cd then sampSendChat('/n Г“ ГўГ Г± ГЉГ„ Г­Г  /fractionrp! ГЋГ±ГІГ Г«Г®Г±Гј ' .. cd) end
     end
     
     local cleanTextPhone = text:gsub("{......}", "")
@@ -1605,22 +1605,22 @@ function sampev.onServerMessage(color, text)
     if sbiv_chat_enabled[0] then
         local res, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
         if res then
-            local start_pos = clean_text:find(sampGetPlayerNickname(myId) .. "%[%d+%] принимает дозу укропа")
+            local start_pos = clean_text:find(sampGetPlayerNickname(myId) .. "%[%d+%] ГЇГ°ГЁГ­ГЁГ¬Г ГҐГІ Г¤Г®Г§Гі ГіГЄГ°Г®ГЇГ ")
             if start_pos and start_pos <= 5 then
                 lua_thread.create(function() wait(10); sampSendChat(u8:decode(ffi.string(sbiv_chat_text))) end)
             end
         end
     end
     
-    if autophone_inc_enabled[0] and cleanTextPhone:find("%[Информация%] Вы подняли трубку") then
+    if autophone_inc_enabled[0] and cleanTextPhone:find("%[Г€Г­ГґГ®Г°Г¬Г Г¶ГЁГї%] Г‚Г» ГЇГ®Г¤Г­ГїГ«ГЁ ГІГ°ГіГЎГЄГі") then
         lua_thread.create(function() wait(100); sampSendChat(u8:decode(ffi.string(autophone_inc_text))) end)
     end
-    if autophone_out_enabled[0] and cleanTextPhone:find("%[Информация%] Собеседник взял трубку") then
+    if autophone_out_enabled[0] and cleanTextPhone:find("%[Г€Г­ГґГ®Г°Г¬Г Г¶ГЁГї%] Г‘Г®ГЎГҐГ±ГҐГ¤Г­ГЁГЄ ГўГ§ГїГ« ГІГ°ГіГЎГЄГі") then
         lua_thread.create(function() wait(100); sampSendChat(u8:decode(ffi.string(autophone_out_text))) end)
     end
 
     local pid, msg, chat_type = nil, nil, "unknown"
-    pid, msg = clean_text:match(".-%[(%d+)%] говорит:%s*(.+)")
+    pid, msg = clean_text:match(".-%[(%d+)%] ГЈГ®ГўГ®Г°ГЁГІ:%s*(.+)")
     if pid then chat_type = "ic" end
     if not pid then pid, msg = clean_text:match("%[[^%]]+%]%s+.-%[(%d+)%]:%s*%(%(%s*(.-)%s*%)%)"); if pid then chat_type = "nrp" end end
     if not pid then pid, msg = clean_text:match("%(%(.-%[(%d+)%]:%s*(.-)%s*%)%)"); if pid then chat_type = "ooc" end end
@@ -1630,7 +1630,7 @@ function sampev.onServerMessage(color, text)
         local clean_msg = " " .. msg:lower():gsub("[%p%c]", " ") .. " "
 
         if vc_form_enabled[0] and chat_type == "vr" then
-            for _, kw in ipairs({"очередь вс", "сколько очередь", "очередь на вс"}) do
+            for _, kw in ipairs({"Г®Г·ГҐГ°ГҐГ¤Гј ГўГ±", "Г±ГЄГ®Г«ГјГЄГ® Г®Г·ГҐГ°ГҐГ¤Гј", "Г®Г·ГҐГ°ГҐГ¤Гј Г­Г  ГўГ±"}) do
                 if clean_msg:find(kw) then
                     pending_form_type, pending_form_data, form_warning_time = "vc", {target = tonumber(pid)}, os.clock()
                     return 
@@ -1639,8 +1639,8 @@ function sampev.onServerMessage(color, text)
         end
 
         if fwarn_form_enabled[0] and chat_type == "nrp" then
-            local target, reason = msg:match("[/фf][wв]arn%s+(%d+)%s+(.+)")
-            if not target then target, reason = msg:match("выговор%s+(%d+)%s+(.+)") end
+            local target, reason = msg:match("[/Гґf][wГў]arn%s+(%d+)%s+(.+)")
+            if not target then target, reason = msg:match("ГўГ»ГЈГ®ГўГ®Г°%s+(%d+)%s+(.+)") end
             if target and reason then
                 pending_form_type = "fwarn"
                 pending_form_data = {target = tonumber(target), reason = reason, author = sampGetPlayerNickname(tonumber(pid)) or tostring(pid)}
@@ -1650,7 +1650,7 @@ function sampev.onServerMessage(color, text)
         end
         
         if givesocial_enabled[0] and chat_type == "ic" then
-            for _, kw in ipairs({"доки", "социальное", "соц", "документы", "жилье", "жильё", "подпиши"}) do
+            for _, kw in ipairs({"Г¤Г®ГЄГЁ", "Г±Г®Г¶ГЁГ Г«ГјГ­Г®ГҐ", "Г±Г®Г¶", "Г¤Г®ГЄГіГ¬ГҐГ­ГІГ»", "Г¦ГЁГ«ГјГҐ", "Г¦ГЁГ«ГјВё", "ГЇГ®Г¤ГЇГЁГёГЁ"}) do
                 if clean_msg:find(" " .. kw .. " ") then
                     lua_thread.create(function()
                         wait(500 + math.random(250, 750)); pid = tonumber(pid)
@@ -1662,12 +1662,12 @@ function sampev.onServerMessage(color, text)
         end
 
         if givepass_enabled[0] and chat_type == "ic" then
-            for _, kw in ipairs({"виза", "визу", "вайсити", "авто", "машина", "сертификат", "машину", "автомобиль", "перевести", "серт"}) do
+            for _, kw in ipairs({"ГўГЁГ§Г ", "ГўГЁГ§Гі", "ГўГ Г©Г±ГЁГІГЁ", "Г ГўГІГ®", "Г¬Г ГёГЁГ­Г ", "Г±ГҐГ°ГІГЁГґГЁГЄГ ГІ", "Г¬Г ГёГЁГ­Гі", "Г ГўГІГ®Г¬Г®ГЎГЁГ«Гј", "ГЇГҐГ°ГҐГўГҐГ±ГІГЁ", "Г±ГҐГ°ГІ"}) do
                 if clean_msg:find(" " .. kw .. " ") then
                     lua_thread.create(function()
                         wait(500 + math.random(250, 750)); pid = tonumber(pid)
                         if sampIsPlayerConnected(pid) then
-                            givepass_action_type = (kw:find("виз") or kw:find("вайсити")) and 'pass' or 'auto'
+                            givepass_action_type = (kw:find("ГўГЁГ§") or kw:find("ГўГ Г©Г±ГЁГІГЁ")) and 'pass' or 'auto'
                             sampSendChat("/givepass " .. pid)
                         end
                     end)
@@ -1677,7 +1677,7 @@ function sampev.onServerMessage(color, text)
         end
 
         if givecitizen_enabled[0] and chat_type == "ic" then
-            for _, kw in ipairs({"гражданство", "гражданский", "прописку", "прописка"}) do
+            for _, kw in ipairs({"ГЈГ°Г Г¦Г¤Г Г­Г±ГІГўГ®", "ГЈГ°Г Г¦Г¤Г Г­Г±ГЄГЁГ©", "ГЇГ°Г®ГЇГЁГ±ГЄГі", "ГЇГ°Г®ГЇГЁГ±ГЄГ "}) do
                 if clean_msg:find(" " .. kw .. " ") then
                     lua_thread.create(function()
                         wait(500 + math.random(250, 750)); pid = tonumber(pid)
@@ -1689,7 +1689,7 @@ function sampev.onServerMessage(color, text)
         end
 
         if fractionrp_enabled[0] and chat_type == "ic" then
-            for _, kw in ipairs({"рп", "можно рп", "rp", "можно rp", "дай рп", "пометку", "печать", "печатку"}) do
+            for _, kw in ipairs({"Г°ГЇ", "Г¬Г®Г¦Г­Г® Г°ГЇ", "rp", "Г¬Г®Г¦Г­Г® rp", "Г¤Г Г© Г°ГЇ", "ГЇГ®Г¬ГҐГІГЄГі", "ГЇГҐГ·Г ГІГј", "ГЇГҐГ·Г ГІГЄГі"}) do
                 if clean_msg:find(" " .. kw .. " ") then
                     lua_thread.create(function()
                         wait(500 + math.random(250, 750)); pid = tonumber(pid)
@@ -1703,7 +1703,7 @@ function sampev.onServerMessage(color, text)
 end
 
 function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
-    if autologin_enabled[0] and ffi.string(autologin_password) ~= "" and (title:find("Авторизация") or text:find("Введите пароль")) then
+    if autologin_enabled[0] and ffi.string(autologin_password) ~= "" and (title:find("ГЂГўГІГ®Г°ГЁГ§Г Г¶ГЁГї") or text:find("Г‚ГўГҐГ¤ГЁГІГҐ ГЇГ Г°Г®Г«Гј")) then
         lua_thread.create(function()
             wait(200)
             sampSendDialogResponse(dialogId, 1, 0, u8:decode(ffi.string(autologin_password)))
@@ -1739,8 +1739,8 @@ function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
             lua_thread.create(function()
                 wait(400 + math.random(100, 200))
                 sampSendDialogResponse(dialogId, 1, target_idx, "")
-                if next_spawn_after_rec then addToast(u8("Спавн после /rec: " .. wanted_name), 2); next_spawn_after_rec = false
-                else addToast(u8"Авто-спавн", 2) end
+                if next_spawn_after_rec then addToast(u8("Г‘ГЇГ ГўГ­ ГЇГ®Г±Г«ГҐ /rec: " .. wanted_name), 2); next_spawn_after_rec = false
+                else addToast(u8"ГЂГўГІГ®-Г±ГЇГ ГўГ­", 2) end
             end)
             return false 
         end
@@ -1762,8 +1762,8 @@ function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
             if is_first_line and style == 5 then is_first_line = false
             else
                 is_first_line = false
-                if clean:find("»»»") or clean:find("Следующая") or clean:find("СЛЕДУЮЩАЯ") then has_next, next_idx = true, listitem_index
-                elseif not (clean:find("«««") or clean:find("Предыдущая") or clean:find("ПРЕДЫДУЩАЯ")) then
+                if clean:find("В»В»В»") or clean:find("Г‘Г«ГҐГ¤ГіГѕГ№Г Гї") or clean:find("Г‘Г‹Г…Г„Г“ГћГ™ГЂГџ") then has_next, next_idx = true, listitem_index
+                elseif not (clean:find("В«В«В«") or clean:find("ГЏГ°ГҐГ¤Г»Г¤ГіГ№Г Гї") or clean:find("ГЏГђГ…Г„Г›Г„Г“Г™ГЂГџ")) then
                     local cols = {}
                     for col in clean:gmatch("[^\t]+") do table.insert(cols, col) end
                     if #cols >= 3 then
@@ -1786,7 +1786,7 @@ function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
             end
         end
 
-        addToast(u8(string.format("Стр. %d | Добавлено: %d | Дальше: %s", page_counter, found_on_page, (has_next and "ДА" or "НЕТ"))), 1)
+        addToast(u8(string.format("Г‘ГІГ°. %d | Г„Г®ГЎГ ГўГ«ГҐГ­Г®: %d | Г„Г Г«ГјГёГҐ: %s", page_counter, found_on_page, (has_next and "Г„ГЂ" or "ГЌГ…Г’"))), 1)
 
         if has_next and next_idx ~= -1 and page_counter < 15 then
             page_counter = page_counter + 1
@@ -1795,11 +1795,11 @@ function sampev.onShowDialog(dialogId, style, title, button1, button2, text)
             is_checking_stroy = false
             lua_thread.create(function()
                 wait(500); sampSendDialogResponse(dialogId, 0, 0, "") 
-                if #current_punish_list == 0 then addToast(u8"Проверка окончена. Все в строю!", 2)
+                if #current_punish_list == 0 then addToast(u8"ГЏГ°Г®ГўГҐГ°ГЄГ  Г®ГЄГ®Г­Г·ГҐГ­Г . Г‚Г±ГҐ Гў Г±ГІГ°Г®Гѕ!", 2)
                 else
-                    addToast(u8("Прогульщиков: " .. #current_punish_list .. ". Выдаю выговоры..."), 2)
+                    addToast(u8("ГЏГ°Г®ГЈГіГ«ГјГ№ГЁГЄГ®Гў: " .. #current_punish_list .. ". Г‚Г»Г¤Г Гѕ ГўГ»ГЈГ®ГўГ®Г°Г»..."), 2)
                     for _, pid in ipairs(current_punish_list) do sampSendChat(string.format("/fwarn %d %s", pid, u8:decode(ffi.string(punish_reason)))); wait(punish_delay[0] * 1000) end
-                    addToast(u8"Выдача завершена!", 2)
+                    addToast(u8"Г‚Г»Г¤Г Г·Г  Г§Г ГўГҐГ°ГёГҐГ­Г !", 2)
                 end
             end)
         end
