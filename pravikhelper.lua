@@ -1,4 +1,4 @@
-local script_version = 2.5
+local script_version = 2.6
 
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
@@ -47,6 +47,10 @@ local default_cfg = {
 		givesocial_enabled = false,
         givepass_enabled = false,
         tg_enabled = false,          
+		fractionrp_last_time = 0,              -- Время последнего РП
+        fractionrp_overlay_enabled = true,     -- Включатель оверлея
+        fractionrp_overlay_x = 500.0,          -- Позиция X
+        fractionrp_overlay_y = 500.0,          -- Позиция Y
         tg_token = "",               
         tg_chat_id = 0,
         tg_custom_api_enabled = false, 
@@ -151,6 +155,9 @@ local autophone_inc_enabled = imgui.new.bool(cfg.config.autophone_inc_enabled)
 local autophone_out_enabled = imgui.new.bool(cfg.config.autophone_out_enabled)
 local autophone_inc_text = imgui.new.char[256](u8(tostring(cfg.config.autophone_inc_text)))
 local autophone_out_text = imgui.new.char[256](u8(tostring(cfg.config.autophone_out_text)))
+local fractionrp_last_time = cfg.config.fractionrp_last_time
+local fractionrp_overlay_enabled = imgui.new.bool(cfg.config.fractionrp_overlay_enabled)
+local overlay_pos = imgui.new.float[2]({cfg.config.fractionrp_overlay_x, cfg.config.fractionrp_overlay_y})
 local vc_form_enabled = imgui.new.bool(cfg.config.vc_form_enabled)
 local fwarn_form_enabled = imgui.new.bool(cfg.config.fwarn_form_enabled)
 local form_hotkey = imgui.new.int(cfg.config.form_hotkey)
@@ -364,6 +371,10 @@ function saveConfig()
     cfg.config.sbiv_chat_text = u8:decode(ffi.string(sbiv_chat_text))
     cfg.config.givecitizen_enabled = givecitizen_enabled[0]
     cfg.config.givesocial_enabled = givesocial_enabled[0]
+	cfg.config.fractionrp_last_time = fractionrp_last_time
+	cfg.config.fractionrp_overlay_enabled = fractionrp_overlay_enabled[0]
+	cfg.config.fractionrp_overlay_x = overlay_pos[0]
+	cfg.config.fractionrp_overlay_y = overlay_pos[1]
     cfg.config.givepass_enabled = givepass_enabled[0]
     cfg.config.tg_enabled = tg_enabled[0]
     cfg.config.tg_token = u8:decode(ffi.string(tg_token))
@@ -798,6 +809,51 @@ function main()
     sampRegisterChatCommand("animka", function()
         cmd_pop()
     end)
+	
+	sampRegisterChatCommand("fill", function()
+        lua_thread.create(function()
+            -- 1. Пишем команду в чат
+            sampSendChat("/fillcar")
+            
+            -- 2. Ждем, пока сервер покажет диалог с выбором машин
+            local wait_timer = 0
+            while not sampIsDialogActive() and wait_timer < 20 do
+                wait(100)
+                wait_timer = wait_timer + 1
+            end
+            
+            -- 3. Отправляем ответ на диалог (выбираем первую машину) и гасим его визуально
+            if sampIsDialogActive() then
+                local dialogId = sampGetCurrentDialogId()
+                sampSendDialogResponse(dialogId, 1, 0, "")
+                sampCloseCurrentDialogWithButton(0) -- Жестко скрываем самп-окно
+            end
+            
+            wait(500)
+            
+            -- 4. Отправляем CEF пакет выбора действия: radialMenu.useAction|45
+            local packetData = {220, 18, 23, 0, 114, 97, 100, 105, 97, 108, 77, 101, 110, 117, 46, 117, 115, 101, 65, 99, 116, 105, 111, 110, 124, 52, 53, 0, 0, 0, 0}
+            local bs = raknetNewBitStream()
+            for i = 1, #packetData do 
+                raknetBitStreamWriteInt8(bs, packetData[i]) 
+            end
+            raknetSendBitStreamEx(bs, 1, 7, 0)
+            raknetDeleteBitStream(bs)
+            
+            wait(100)
+            
+            -- 5. Отправляем CEF пакет закрытия кругового меню
+            local closePacket = {220, 18, 24, 0, 111, 110, 65, 99, 116, 105, 118, 101, 86, 105, 101, 119, 67, 104, 97, 110, 103, 101, 100, 124, 110, 117, 108, 108, 0, 0, 0, 0}
+            local bs2 = raknetNewBitStream()
+            for i = 1, #closePacket do 
+                raknetBitStreamWriteInt8(bs2, closePacket[i]) 
+            end
+            raknetSendBitStreamEx(bs2, 1, 7, 0)
+            raknetDeleteBitStream(bs2)
+            
+            addToast(u8"Успешно: авто заправлено!", 2)
+        end)
+    end)
 
     addToast(u8"Скрипт загружен. Введите /pravik", 2)
 
@@ -994,6 +1050,20 @@ local function RenderTabAuto()
             end
         end
     end
+	
+	imgui.Spacing(); imgui.Separator(); imgui.Spacing()
+	
+	imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> КД НА РП")
+	    -- НОВЫЙ БЛОК:
+    imgui.Spacing()
+    if imgui.Checkbox(u8"Оверлей КД на экране", fractionrp_overlay_enabled) then saveConfig() end
+    if fractionrp_last_time > 0 then
+        imgui.SameLine()
+        if imgui.Button(u8"Сбросить таймер") then
+            fractionrp_last_time = 0
+            saveConfig()
+        end
+    end
 end
 
 local function RenderTabStroy()
@@ -1134,7 +1204,7 @@ local function RenderTabSpawn()
 end
 
 local function RenderTabUtils()
-    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"/vc - очередь на Vice-City\n/lift - вызвать лифт вверх\n/liftd - вызвать лифт вниз\n/calc - калькулятор как на iphone 17 pro max 2tb")
+    imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"/vc - очередь на Vice-City\n/lift - вызвать лифт вверх\n/liftd - вызвать лифт вниз\n/calc - калькулятор как на iphone 17 pro max 2tb\n/fill - очень умная заправка авто с внедрением искусственного интеллекта")
 	imgui.Separator()
     
     if imgui.Checkbox(u8"ESC Bypass", bypass_esc_enabled) then saveConfig() end
@@ -1260,7 +1330,7 @@ function cmd_pop()
 end
 
 imgui.OnFrame(
-    function() return main_window_state[0] or calc_window_state[0] or #toasts > 0 end,
+    function() return main_window_state[0] or calc_window_state[0] or #toasts > 0 or (fractionrp_overlay_enabled[0] and fractionrp_last_time > 0) end,
     function(player)
         player.HideCursor = not (main_window_state[0] or calc_window_state[0])
         
@@ -1269,6 +1339,52 @@ imgui.OnFrame(
         local sw, sh = getScreenResolution()
         
         RenderToasts(sw, sh, current_time)
+		
+		-- =========================
+        -- ОВЕРЛЕЙ КД НА РП
+        -- =========================
+        if fractionrp_overlay_enabled[0] and fractionrp_last_time > 0 then
+            -- 10800 секунд = 3 часа
+            local time_left = (fractionrp_last_time + 10800) - os.time()
+            if time_left <= 0 then
+                fractionrp_last_time = 0
+                saveConfig()
+            else
+                local h = math.floor(time_left / 3600)
+                local m = math.floor((time_left % 3600) / 60)
+                local s = time_left % 60
+                
+                imgui.SetNextWindowPos(imgui.ImVec2(overlay_pos[0], overlay_pos[1]), imgui.Cond.FirstUseEver)
+                
+                local flags = imgui.WindowFlags.NoTitleBar + imgui.WindowFlags.NoResize + imgui.WindowFlags.AlwaysAutoResize
+                -- Если основное меню закрыто, делаем оверлей прозрачным и некликабельным
+                if not main_window_state[0] then 
+                    flags = flags + imgui.WindowFlags.NoInputs 
+                    imgui.PushStyleColor(imgui.Col.WindowBg, imgui.ImVec4(0.1, 0.1, 0.1, 0.3))
+                    imgui.PushStyleColor(imgui.Col.Border, imgui.ImVec4(0.0, 0.0, 0.0, 0.0))
+                else
+                    imgui.PushStyleColor(imgui.Col.WindowBg, imgui.ImVec4(0.15, 0.15, 0.15, 0.9))
+                    imgui.PushStyleColor(imgui.Col.Border, imgui.ImVec4(0.4, 0.4, 0.4, 0.5))
+                end
+
+                if imgui.Begin("##RPCooldownOverlay", nil, flags) then
+                    imgui.TextColored(imgui.ImVec4(1.0, 0.8, 0.2, 1.0), u8(string.format("КД на РП: %02d:%02d:%02d", h, m, s)))
+                    
+                    -- Если меню открыто, показываем подсказку и сохраняем координаты при перемещении
+                    if main_window_state[0] then
+                        imgui.TextColored(imgui.ImVec4(0.5, 0.5, 0.5, 1.0), u8"(Можно двигать)")
+                        local pos = imgui.GetWindowPos()
+                        if pos.x ~= overlay_pos[0] or pos.y ~= overlay_pos[1] then
+                            overlay_pos[0] = pos.x
+                            overlay_pos[1] = pos.y
+                            saveConfig()
+                        end
+                    end
+                    imgui.End()
+                end
+                imgui.PopStyleColor(2)
+            end
+        end
 
         if main_window_state[0] then
             imgui.SetNextWindowSize(imgui.ImVec2(630, 435), imgui.Cond.Always)
@@ -1590,6 +1706,22 @@ function sampev.onServerMessage(color, text)
     
     local cleanTextPhone = text:gsub("{......}", "")
     local clean_text = text:gsub("{.-}", "")
+	
+	local clean_text = text:gsub("{.-}", "")
+    
+    -- НОВЫЙ БЛОК: Запуск таймера
+    local res_id, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
+    if res_id then
+        local myNick = sampGetPlayerNickname(myId)
+        if myNick then
+            -- Экранируем ник на случай спецсимволов и ищем совпадение
+				if clean_text:find("кдрп") then
+                fractionrp_last_time = os.time()
+                saveConfig()
+                addToast(u8"Таймер КД на РП запущен (3 часа)!", 2)
+            end
+        end
+    end
     
     if sbiv_chat_enabled[0] then
         local res, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
