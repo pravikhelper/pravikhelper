@@ -1,4 +1,4 @@
-local script_version = 2.6
+local script_version = 2.7
 
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
@@ -531,7 +531,7 @@ function getVcServer()
             if data and data.vc then
                 for _, po in pairs(data.vc) do
                     addToast(u8('Сервер: %s | онлайн: %s/%s | очередь: %s'):format(po.name, po.online, po.maxplayers, po.queue), 0xCCCCCC)
-                    sampAddChatMessage(('[PravikHelper] {FFFFFF}Сервер: %s | онлайн: %s/%s | очередь: %s'):format(po.name, po.online, po.maxplayers, po.queue), 0xCCCCCC)
+                    sampAddChatMessage(('PravikHelper: {FFFFFF}Сервер: %s | онлайн: %s/%s | очередь: %s'):format(po.name, po.online, po.maxplayers, po.queue), 0xCCCCCC)
                 end
                 return
             end
@@ -1345,10 +1345,20 @@ imgui.OnFrame(
         -- =========================
         if fractionrp_overlay_enabled[0] and fractionrp_last_time > 0 then
             -- 10800 секунд = 3 часа
-            local time_left = (fractionrp_last_time + 10800) - os.time()
+			local time_left = (fractionrp_last_time + 10800) - os.time()
             if time_left <= 0 then
                 fractionrp_last_time = 0
                 saveConfig()
+                
+                -- 1. Оповещение в игровой чат
+                sampAddChatMessage("{555555}PravikHelper: {00FF00}КД на РП (3 часа) подошло к концу!", -1)
+                
+                -- 2. Отправка уведомления в Telegram
+                if tg_enabled[0] and tg_chat_id ~= 0 then
+                    local safe_text = urlencode(u8("КД на РП (3 часа) прошло!\nМожно снова получить."))
+                    local url = string.format("%s/bot%s/sendMessage?chat_id=%s&text=%s", getBaseUrl(), u8:decode(ffi.string(tg_token)), tostring(tg_chat_id), safe_text)
+                    async_http_request(url)
+                end
             else
                 local h = math.floor(time_left / 3600)
                 local m = math.floor((time_left % 3600) / 60)
@@ -1714,8 +1724,8 @@ function sampev.onServerMessage(color, text)
     if res_id then
         local myNick = sampGetPlayerNickname(myId)
         if myNick then
-            -- Экранируем ник на случай спецсимволов и ищем совпадение
-				if clean_text:find("кдрп") then
+-- Используем .- чтобы пропустить ник, и обрезаем концовку на случай опечаток сервера
+            if clean_text:find("%[Информация%] .- подтвердил участие на мероприяти") then
                 fractionrp_last_time = os.time()
                 saveConfig()
                 addToast(u8"Таймер КД на РП запущен (3 часа)!", 2)
