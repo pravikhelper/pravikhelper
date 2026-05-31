@@ -1,4 +1,4 @@
-local script_version = 2.8
+local script_version = 2.7
 
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
