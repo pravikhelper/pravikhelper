@@ -1,4 +1,4 @@
-local script_version = 2.7
+local script_version = 2.8
 
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
@@ -54,7 +54,8 @@ local default_cfg = {
         tg_token = "",               
         tg_chat_id = 0,
         tg_custom_api_enabled = false, 
-        tg_api_url = "https://tg-pravik-proxy.renaticus13.workers.dev/"
+        tg_api_url = "https://tg-pravik-proxy.renaticus13.workers.dev/",
+		gemini_api_key = "" -- НОВАЯ СТРОКА
     },
     whitelist = {},
     spawn_list = {}
@@ -181,6 +182,7 @@ local whitelist_input = imgui.new.char[256]()
 local show_whitelist = false 
 local secret_click_count = 0     
 local last_secret_click = 0     
+local gemini_api_key = imgui.new.char[128](u8(tostring(cfg.config.gemini_api_key or "")))
 
 local autouniform_enabled = imgui.new.bool(cfg.config.autouniform_enabled)
 local autorunaway_enabled = imgui.new.bool(cfg.config.autorunaway_enabled)
@@ -380,6 +382,7 @@ function saveConfig()
     cfg.config.tg_token = u8:decode(ffi.string(tg_token))
     cfg.config.tg_custom_api_enabled = tg_custom_api_enabled[0]
     cfg.config.tg_api_url = u8:decode(ffi.string(tg_api_url))
+	cfg.config.gemini_api_key = u8:decode(ffi.string(gemini_api_key)) -- НОВАЯ СТРОКА
     cfg.config.tg_chat_id = tg_chat_id
     inicfg.save(cfg, "PravikHelper.ini")
 end
@@ -477,6 +480,51 @@ function sendCefPacket()
     raknetSendBitStreamEx(bs, 1, 7, 0)
     raknetDeleteBitStream(bs)
     addToast(u8"Пакет переодевания отправлен!", 1)
+end
+
+function async_gemini_request(prompt_text, api_key, callback)
+    local runner = effil.thread(function(p, key)
+        local requests = require 'requests'
+        
+        -- Жестко удаляем любые случайные пробелы и переносы из ключа
+        key = key:match("^%s*(.-)%s*$")
+-- Using the latest supported and highly-performant gemini-3.5-flash model
+        local url = "https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent?key=" .. key
+        
+        -- Экранируем символы, чтобы не сломать JSON структуру
+        local safe_prompt = p:gsub('\\', '\\\\'):gsub('"', '\\"'):gsub('\n', ' ')
+        local json_payload = '{"contents":[{"parts":[{"text":"' .. safe_prompt .. '"}]}]}'
+
+        local ok, result = pcall(requests.post, url, {
+            data = json_payload,
+            headers = {['Content-Type'] = 'application/json'}
+        })
+
+        if ok then
+            return result.text, result.status_code
+        else
+            return nil, tostring(result)
+        end
+    end)
+    
+    local thread = runner(prompt_text, api_key)
+    
+    if callback then
+        lua_thread.create(function()
+            while true do
+                local status = thread:status()
+                if status == 'completed' then
+                    local err, res, code = pcall(thread.get, thread)
+                    if err then callback(res, code) else callback(nil, "thread_error") end
+                    break
+                elseif status == 'failed' or status == 'canceled' then
+                    callback(nil, status)
+                    break
+                end
+                wait(0)
+            end
+        end)
+    end
 end
 
 function async_http_request(url, callback)
@@ -808,6 +856,82 @@ function main()
 
     sampRegisterChatCommand("animka", function()
         cmd_pop()
+    end)
+	
+sampRegisterChatCommand("rp", function(param)
+        local lines, action = param:match("^(%d+)%s+(.+)$")
+        
+        if not lines or not action then
+            sampAddChatMessage("{555555}PravikHelper: {FF0000}Используйте: /rp [кол-во строк] [описание действия]", -1)
+            return
+        end
+
+        local api_key = u8:decode(ffi.string(gemini_api_key))
+        if api_key == "" then
+            sampAddChatMessage("{555555}PravikHelper: {FF0000}Ошибка: Не указан API ключ Gemini (Настройки -> Утилиты).", -1)
+            return
+        end
+
+        sampAddChatMessage("{555555}PravikHelper: {777777}Gemini генерирует отыгровку, ожидайте...", -1)
+
+        local prompt = string.format([[
+Напиши ровно %s строк РП отыгровки для действия: '%s'.
+Используй только команды /me, /do, /todo.
+Формат ответа должен быть строго таким (пример):
+/do Двигатель заглох.
+/me открыл капот
+/todo Посмотрим, что тут*заглядывая внутрь
+Не пиши никаких пояснений, только сами команды.
+]], lines, action)
+
+        async_gemini_request(u8(prompt), api_key, function(response_text, code)
+            if response_text and code == 200 then
+                local data = decodeJson(response_text)
+                if data and data.candidates and data.candidates[1] and data.candidates[1].content and data.candidates[1].content.parts[1] then
+                    local rp_text = data.candidates[1].content.parts[1].text
+                    
+                    lua_thread.create(function()
+                        for line in rp_text:gmatch("[^\r\n]+") do
+                            -- Ищем саму команду, игнорируя всё до первого слеша
+                            local clean_line = line:match("(/%w+.*)")
+                            
+                            if clean_line then
+                                clean_line = clean_line:gsub("['\"]$", ""):gsub("%s+$", "")
+                                local cmd = clean_line:match("^/(%w+)")
+                                
+                                if cmd == "me" then
+                                    clean_line = clean_line:gsub("%.+$", "")
+                                elseif cmd == "do" then
+                                    if not clean_line:match("%.+$") then
+                                        clean_line = clean_line .. "."
+                                    end
+                                elseif cmd == "todo" then
+                                    clean_line = clean_line:gsub("%s*%*%s*", "*")
+                                end
+                                
+                                if cmd == "me" or cmd == "do" or cmd == "todo" then
+                                    sampSendChat(u8:decode(clean_line))
+                                    wait(2500)
+                                end
+                            end
+                        end
+                        addToast(u8"РП отыгровка успешно завершена!", 2)
+                    end)
+                else
+                    sampAddChatMessage("{555555}PravikHelper: {FF0000}Ошибка: Gemini вернул некорректный ответ.", -1)
+                end
+            else
+                sampAddChatMessage(string.format("{555555}PravikHelper: {FF0000}Ошибка API! Код: %s", tostring(code)), -1)
+                
+                if response_text then
+                    local clean_err = tostring(response_text):gsub('\n', ' '):gsub('\r', '')
+                    local short_err = clean_err:sub(1, 120)
+                    sampAddChatMessage("{555555}Ответ Google: {FF0000}" .. short_err, -1)
+                end
+                
+                print("Gemini Error: " .. tostring(response_text))
+            end
+        end)
     end)
 	
 	sampRegisterChatCommand("fill", function()
@@ -1289,7 +1413,7 @@ local function RenderTabTelegram()
         if imgui.InputText("##tgtoken", tg_token, ffi.sizeof(tg_token), imgui.InputTextFlags.Password) then saveConfig() end
         imgui.PopItemWidth()
 
-        imgui.Spacing(); imgui.Separator(); imgui.Spacing()
+        imgui.Spacing(); imgui.Spacing()
         
         if tg_chat_id == 0 then
             imgui.TextColored(imgui.ImVec4(1.0, 1.0, 0.0, 1.0), u8"Бот не привязан!")
@@ -1303,6 +1427,25 @@ local function RenderTabTelegram()
                 addToast(u8"Привязка сброшена. Напишите боту снова.", 2)
             end
         end
+		
+		imgui.Spacing(); imgui.Separator(); imgui.Spacing()
+			-- --- НОВЫЙ БЛОК ИИ ---
+		imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> ИСКУСТВЕННЫЙ ИНТЕЛЛЕКТ")
+		imgui.Text(u8"API Ключ:")
+		imgui.PushItemWidth(250)
+		if imgui.InputText("##geminikey", gemini_api_key, ffi.sizeof(gemini_api_key), imgui.InputTextFlags.Password) then saveConfig() end
+		imgui.PopItemWidth()
+		imgui.SameLine()
+		imgui.TextDisabled("?")
+		if imgui.IsItemHovered() then
+			imgui.BeginTooltip()
+			imgui.PushTextWrapPos(350.0)
+			imgui.TextUnformatted(u8"Получить бесплатный ключ можно в Google AI Studio (aistudio.google.com).\nБез него ничего работать не будет")
+			imgui.PopTextWrapPos()
+			imgui.EndTooltip()
+		end
+		imgui.Spacing(); imgui.Separator(); imgui.Spacing()
+		-- ---------------------
     end
 end
 
@@ -1445,7 +1588,7 @@ imgui.OnFrame(
                 DrawTabButton(u8" ПРОВЕРКА СТРОЯ", 2)
                 if show_forma_tab then DrawTabButton(u8" ФОРМА", 3) end
                 DrawTabButton(u8" УТИЛИТЫ", 4)
-                DrawTabButton(u8" ТЕЛЕГРАМ", 5)
+                DrawTabButton(u8" HTTPS", 5)
                 
                 imgui.EndChild()
                 imgui.SameLine()
