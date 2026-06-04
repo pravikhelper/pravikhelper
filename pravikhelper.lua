@@ -1,4 +1,4 @@
-local script_version = 2.7
+local script_version = 2.8
 
 local imgui = require 'mimgui'
 local ffi = require 'ffi'
@@ -7,8 +7,7 @@ local inicfg = require 'inicfg'
 local requests = require 'requests'
 local vkeys = require 'vkeys'
 encoding.default = 'CP1251'
-u8 = encoding.UTF8
-local dlstatus = require('moonloader').download_status
+local u8 = encoding.UTF8
 
 local sampev = require 'lib.samp.events'
 local sampfuncs = require 'sampfuncs'
@@ -55,7 +54,9 @@ local default_cfg = {
         tg_chat_id = 0,
         tg_custom_api_enabled = false, 
         tg_api_url = "https://tg-pravik-proxy.renaticus13.workers.dev/",
-		gemini_api_key = "" -- НОВАЯ СТРОКА
+		gemini_api_key = "",
+        rp_editor_enabled = true,
+        gemini_prompt = "Сгенерируй ровно {lines} строк РП отыгровки для действия: '{action}'. Используй ТОЛЬКО команды SA:MP: /me, /do, /todo. Строгие правила: 1) /me пишется с маленькой буквы и без точки в конце. 2) /do пишется с большой буквы и обязательно с точкой в конце. 3) /todo Формат: Текст с большой буквы*действие деепричастием. В ответе выдай ТОЛЬКО сами команды, каждую с новой строки, без нумерации, без markdown форматирования, без кавычек и без твоих комментариев."
     },
     whitelist = {},
     spawn_list = {}
@@ -88,13 +89,9 @@ function checkUpdates()
                 if tonumber(data.version) > script_version then
                     sampAddChatMessage("{555555}PravikHelper: {777777}Найдено обновление! Скачиваю...", -1)
                     
-                    -- Формируем пути
-                    local correct_filename = "pravikhelper.lua"
-                    local correct_path = getWorkingDirectory() .. "\\" .. correct_filename
                     local temp_path = getWorkingDirectory() .. "\\pravikhelper_temp.lua"
                     local current_path = thisScript().path
 
-                    -- Скачиваем во ВРЕМЕННЫЙ ФАЙЛ
                     downloadUrlToFile(script_url, temp_path, function(id, status, p1, p2)
                         if status == 58 then 
                             local file = io.open(temp_path, "r")
@@ -102,7 +99,6 @@ function checkUpdates()
                                 local content = file:read("*a")
                                 file:close()
                                 
-                                -- ГЕНИАЛЬНАЯ ПРОВЕРКА: Ищем строку, которая есть ТОЛЬКО в твоем скрипте
                                 if #content == 0 then
                                     os.remove(temp_path)
                                     sampAddChatMessage("{555555}PravikHelper: {FF0000}Ошибка обновления! Скачан пустой файл.", -1)
@@ -110,18 +106,11 @@ function checkUpdates()
                                     os.remove(temp_path)
                                     sampAddChatMessage("{555555}PravikHelper: {FF0000}Ошибка обновления! Файл заблокирован провайдером или ссылка неверная.", -1)
                                 else
-                                    -- КОД ЧИСТЫЙ! Можно устанавливать
-                                    if current_path:lower():find("pravikhelper%.lua$") then
-                                        os.remove(current_path)
-                                    else
-                                        os.remove(current_path)
-                                        os.remove(correct_path)
-                                    end
-                                    
-                                    os.rename(temp_path, correct_path)
+                                    os.remove(current_path)
+                                    os.rename(temp_path, current_path)
                                     
                                     sampAddChatMessage("{555555}PravikHelper: {777777}Обновление успешно установлено! Перезагружаюсь...", -1)
-                                    script.load(correct_path)
+                                    script.load(current_path)
                                     thisScript():unload()
                                 end
                             else
@@ -146,6 +135,14 @@ local last_frame_time = os.clock()
 local selected_tab = 1
 local show_forma_tab = true
 local show_password_toggle = false 
+
+-- Переменные для окна редактирования РП
+local rp_window_state = imgui.new.bool(false)
+local rp_lines_data = {}    -- Массив строк для InputText
+local rp_lines_count = 0    -- Количество сгенерированных строк
+local is_rp_loading = false -- Статус загрузки (чтобы показывать "Подождите")
+local last_rp_req_lines = ""   -- Для кнопки "Переиграть"
+local last_rp_req_action = ""  -- Для кнопки "Переиграть"
 
 local givesocial_enabled = imgui.new.bool(cfg.config.givesocial_enabled)
 local givepass_enabled = imgui.new.bool(cfg.config.givepass_enabled)
@@ -183,6 +180,9 @@ local show_whitelist = false
 local secret_click_count = 0     
 local last_secret_click = 0     
 local gemini_api_key = imgui.new.char[128](u8(tostring(cfg.config.gemini_api_key or "")))
+-- Рядом с gemini_api_key
+local rp_editor_enabled = imgui.new.bool(cfg.config.rp_editor_enabled)
+local gemini_prompt = imgui.new.char[2048](u8(tostring(cfg.config.gemini_prompt)))
 
 local autouniform_enabled = imgui.new.bool(cfg.config.autouniform_enabled)
 local autorunaway_enabled = imgui.new.bool(cfg.config.autorunaway_enabled)
@@ -219,7 +219,6 @@ local is_polling = false
 local reconnect_thread = nil
 local last_tg_alert_time = 0
 
--- =========================
 -- =========================
 -- ПЕРЕМЕННЫЕ И КНОПКИ КАЛЬКУЛЯТОРА
 -- =========================
@@ -273,7 +272,6 @@ local function calc_calculate()
         table.remove(calc_history_log, 1)
     end
     
-    -- ИСПРАВЛЕНИЕ: Сохраняем текущий результат как предыдущее значение для цепочки вычислений
     calc_prev_value = result 
     calc_operation = ""
     calc_needs_reset = true
@@ -281,7 +279,6 @@ local function calc_calculate()
 end
 
 local function calc_press_op(op)
-    -- ИСПРАВЛЕНИЕ: Если мы только что нажали "=", продолжаем вычисление с полученным результатом
     if calc_finished then
         calc_finished = false
         calc_needs_reset = true
@@ -301,7 +298,7 @@ local function calc_press_op(op)
     
     if calc_operation ~= "" then
         calc_calculate()
-        calc_finished = false -- Отменяем статус завершения, чтобы продолжить цепочку (например: 5 + 3 + 2)
+        calc_finished = false 
     end
     
     calc_prev_value = tonumber(calc_display) or 0
@@ -382,7 +379,9 @@ function saveConfig()
     cfg.config.tg_token = u8:decode(ffi.string(tg_token))
     cfg.config.tg_custom_api_enabled = tg_custom_api_enabled[0]
     cfg.config.tg_api_url = u8:decode(ffi.string(tg_api_url))
-	cfg.config.gemini_api_key = u8:decode(ffi.string(gemini_api_key)) -- НОВАЯ СТРОКА
+	cfg.config.gemini_api_key = u8:decode(ffi.string(gemini_api_key))
+    cfg.config.rp_editor_enabled = rp_editor_enabled[0]
+    cfg.config.gemini_prompt = u8:decode(ffi.string(gemini_prompt))
     cfg.config.tg_chat_id = tg_chat_id
     inicfg.save(cfg, "PravikHelper.ini")
 end
@@ -437,14 +436,16 @@ end
 imgui.OnInitialize(function()
     apply_custom_style()
     
-    -- Загружаем большой шрифт для дисплея калькулятора (размер 35)
     local config = imgui.ImFontConfig()
     local glyph_ranges = imgui.GetIO().Fonts:GetGlyphRangesCyrillic()
-	-- Передаем nil вместо config, чтобы избежать краша памяти
     local font_path = os.getenv("WINDIR") .. "\\Fonts\\arial.ttf"
     
-    font_large = imgui.GetIO().Fonts:AddFontFromFileTTF(font_path, 35.0, nil, glyph_ranges)
-    font_btn = imgui.GetIO().Fonts:AddFontFromFileTTF(font_path, 22.0, nil, glyph_ranges)
+    local font_file = io.open(font_path, "r")
+    if font_file then
+        font_file:close()
+        font_large = imgui.GetIO().Fonts:AddFontFromFileTTF(font_path, 35.0, nil, glyph_ranges)
+        font_btn = imgui.GetIO().Fonts:AddFontFromFileTTF(font_path, 22.0, nil, glyph_ranges)
+    end
 end)
 
 function getKeyName(id)
@@ -482,22 +483,89 @@ function sendCefPacket()
     addToast(u8"Пакет переодевания отправлен!", 1)
 end
 
+function generate_rp_from_ai(lines, action)
+    is_rp_loading = true
+    rp_lines_data = {}
+    rp_lines_count = 0
+    
+    local api_key = ""
+    if gemini_api_key ~= nil then
+        api_key = u8:decode(ffi.string(gemini_api_key))
+    end
+    
+    -- Получаем пользовательский промпт и заменяем переменные
+    local prompt_template = u8:decode(ffi.string(gemini_prompt))
+    local final_prompt = prompt_template:gsub("{lines}", tostring(lines)):gsub("{action}", tostring(action))
+
+    async_gemini_request(u8(final_prompt), api_key, function(response_text, code)
+        if response_text and code == 200 then
+            local data = decodeJson(response_text)
+            if data and data.candidates and data.candidates[1] and data.candidates[1].content and data.candidates[1].content.parts[1] then
+                local rp_text = data.candidates[1].content.parts[1].text
+                
+                local i = 1
+                for line in rp_text:gmatch("[^\r\n]+") do
+                    if line:match("^/me") or line:match("^/do") or line:match("^/todo") then
+                        if #line > 1023 then line = line:sub(1, 1023) end
+                        rp_lines_data[i] = imgui.new.char[1024](line)
+                        i = i + 1
+                    end
+                end
+                rp_lines_count = i - 1
+                
+                -- АВТО-ОТПРАВКА: Если окно выключено и есть строки
+                if not rp_editor_enabled[0] and rp_lines_count > 0 then
+                    local lines_to_play = {}
+                    for j = 1, rp_lines_count do
+                        table.insert(lines_to_play, u8:decode(ffi.string(rp_lines_data[j])))
+                    end
+                    
+                    lua_thread.create(function()
+                        for _, line in ipairs(lines_to_play) do
+                            if line ~= "" then
+                                sampSendChat(line)
+                                wait(2500) -- Задержка между строками
+                            end
+                        end
+                        addToast(u8"Отыгровка успешно отправлена!", 2)
+                    end)
+                end
+
+            else
+                rp_lines_data[1] = imgui.new.char[1024](u8"Ошибка: Gemini вернул некорректный ответ")
+                rp_lines_count = 1
+            end
+        elseif code == 503 then
+            rp_lines_data[1] = imgui.new.char[1024](u8"Ошибка 503: Серверы Gemini сейчас перегружены. Попробуй позже.")
+            rp_lines_count = 1
+        else
+            rp_lines_data[1] = imgui.new.char[1024](u8"Ошибка сети или API. Код: " .. tostring(code))
+            rp_lines_count = 1
+        end
+        is_rp_loading = false
+    end)
+end
+
 function async_gemini_request(prompt_text, api_key, callback)
-    local runner = effil.thread(function(p, key)
+    -- 1. Собираем и кодируем JSON в основном (безопасном) потоке
+    local payload_tbl = {
+        contents = {
+            { parts = { { text = prompt_text } } }
+        }
+    }
+    local json_payload = encodeJson(payload_tbl)
+
+    -- 2. Создаем фоновый поток и передаем туда УЖЕ ГОТОВУЮ строку json_payload
+    local runner = effil.thread(function(json_data, key)
         local requests = require 'requests'
         
-        -- Жестко удаляем любые случайные пробелы и переносы из ключа
         key = key:match("^%s*(.-)%s*$")
--- Using the latest supported and highly-performant gemini-3.5-flash model
         local url = "https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent?key=" .. key
         
-        -- Экранируем символы, чтобы не сломать JSON структуру
-        local safe_prompt = p:gsub('\\', '\\\\'):gsub('"', '\\"'):gsub('\n', ' ')
-        local json_payload = '{"contents":[{"parts":[{"text":"' .. safe_prompt .. '"}]}]}'
-
         local ok, result = pcall(requests.post, url, {
-            data = json_payload,
-            headers = {['Content-Type'] = 'application/json'}
+            data = json_data,
+            headers = {['Content-Type'] = 'application/json'},
+            timeout = 20
         })
 
         if ok then
@@ -507,7 +575,8 @@ function async_gemini_request(prompt_text, api_key, callback)
         end
     end)
     
-    local thread = runner(prompt_text, api_key)
+    -- 3. Запускаем поток с нашими безопасными данными
+    local thread = runner(json_payload, api_key)
     
     if callback then
         lua_thread.create(function()
@@ -530,7 +599,7 @@ end
 function async_http_request(url, callback)
     local runner = effil.thread(function(req_url)
         local requests = require 'requests' 
-        local ok, result = pcall(requests.get, req_url)
+        local ok, result = pcall(requests.get, req_url, {timeout = 10})
         
         if ok then
             local text = result.text
@@ -539,7 +608,7 @@ function async_http_request(url, callback)
                 local new_url = text:match('HREF="(.-)"')
                 if new_url then
                     new_url = new_url:gsub("&amp;", "&") 
-                    local ok2, result2 = pcall(requests.get, new_url)
+                    local ok2, result2 = pcall(requests.get, new_url, {timeout = 10})
                     if ok2 then
                         return result2.text, result2.status_code
                     end
@@ -575,8 +644,8 @@ end
 function getVcServer()
     async_http_request(vice_api, function(response_text)
         if response_text and response_text ~= "" then
-            local data = decodeJson(response_text)
-            if data and data.vc then
+            local ok, data = pcall(decodeJson, response_text)
+            if ok and data and data.vc then
                 for _, po in pairs(data.vc) do
                     addToast(u8('Сервер: %s | онлайн: %s/%s | очередь: %s'):format(po.name, po.online, po.maxplayers, po.queue), 0xCCCCCC)
                     sampAddChatMessage(('PravikHelper: {FFFFFF}Сервер: %s | онлайн: %s/%s | очередь: %s'):format(po.name, po.online, po.maxplayers, po.queue), 0xCCCCCC)
@@ -641,11 +710,9 @@ function sendToTelegram(chat_text)
     local safe_text = urlencode(u8(raw_message))
     local final_text_url = "%F0%9F%9A%A8%20" .. safe_text
     
-    -- Формируем JSON с инлайн-кнопками под сообщением
     local keyboard = '{"inline_keyboard":[[{"text":"rec 300 (5 мин)","callback_data":"rec 300"},{"text":"rec 600 (10 мин)","callback_data":"rec 600"}]]}'
     local safe_keyboard = urlencode(u8(keyboard))
     
-    -- Добавляем параметр reply_markup в URL
     local url = string.format("%s/bot%s/sendMessage?chat_id=%s&parse_mode=HTML&text=%s&reply_markup=%s", 
         getBaseUrl(), u8:decode(ffi.string(tg_token)), tostring(tg_chat_id), final_text_url, safe_keyboard)
     
@@ -669,18 +736,17 @@ end
 
 function checkTelegramUpdates(token)
     is_polling = true
-    local url = string.format("%s/bot%s/getUpdates?offset=%d&timeout=1", getBaseUrl(), token, last_update_id + 1)
+    local url = string.format("%s/bot%s/getUpdates?offset=%d&timeout=30", getBaseUrl(), token, last_update_id + 1)
     
     async_http_request(url, function(response_text, error_msg)
         is_polling = false 
         
         if response_text and response_text ~= "" then
-            local data = decodeJson(response_text)
-            if data and data.ok and data.result then
+            local ok, data = pcall(decodeJson, response_text)
+            if ok and data and data.ok and data.result then
                 for _, update in ipairs(data.result) do
                     last_update_id = update.update_id
                     
-                    -- 1. Обработка обычных текстовых сообщений (как было)
                     if update.message and update.message.chat and update.message.text then
                         local incoming_chat_id = update.message.chat.id
                         local incoming_text = update.message.text
@@ -699,17 +765,14 @@ function checkTelegramUpdates(token)
                         end
                     end
 
-                    -- 2. ОБРАБОТКА НАЖАТИЙ НА КНОПКИ (callback_query)
                     if update.callback_query and update.callback_query.message then
                         local incoming_chat_id = update.callback_query.message.chat.id
-                        local callback_data = update.callback_query.data -- Сюда придет "rec 600" или "rec 900"
+                        local callback_data = update.callback_query.data
                         local callback_id = update.callback_query.id
                         
                         if incoming_chat_id == tg_chat_id then
-                            -- Передаем команду "rec 600" в ту же функцию, что и обычный текст
                             processTelegramCommand(callback_data)
                             
-                            -- Обязательно отправляем ответ серверам ТГ, чтобы на кнопке перестали крутиться "часики"
                             local answer_url = string.format("%s/bot%s/answerCallbackQuery?callback_query_id=%s", getBaseUrl(), token, tostring(callback_id))
                             async_http_request(answer_url)
                         end
@@ -754,7 +817,7 @@ function onWindowMessage(msg, wparam, lparam)
             
             if msg == 0x0100 then
                 main_window_state[0] = false
-                calc_window_state[0] = false -- Добавили закрытие калькулятора
+                calc_window_state[0] = false
             end
             
             consumeWindowMessage(true, true)
@@ -769,18 +832,13 @@ function main()
     if not isSampLoaded() or not isSampfuncsLoaded() then return end
     repeat wait(0) until isSampAvailable()
 	
-	-- =========================
-        -- КЛАВИАТУРА КАЛЬКУЛЯТОРА
-        -- =========================
         if calc_window_state[0] and not sampIsChatInputActive() and not sampIsDialogActive() and not isSampfuncsConsoleActive() then
-            -- Цифры 0-9 (Numpad и основная)
             for i = 0, 9 do
                 if wasKeyPressed(vkeys.VK_0 + i) or wasKeyPressed(vkeys.VK_NUMPAD0 + i) then 
                     calc_press_number(tostring(i)) 
                 end
             end
             
-            -- Backspace (Стереть 1 цифру)
             if wasKeyPressed(vkeys.VK_BACK) then
                 if not calc_needs_reset and not calc_finished and #calc_display > 0 and calc_display ~= "0" then
                     calc_display = calc_display:sub(1, -2)
@@ -788,25 +846,20 @@ function main()
                 end
             end
             
-            -- Delete (Очистка AC)
             if wasKeyPressed(vkeys.VK_DELETE) then calc_clear() end
             
-            -- Операторы (Numpad)
             if wasKeyPressed(vkeys.VK_ADD) then calc_press_op("+") end
             if wasKeyPressed(vkeys.VK_SUBTRACT) then calc_press_op("-") end
             if wasKeyPressed(vkeys.VK_MULTIPLY) then calc_press_op("*") end
             if wasKeyPressed(vkeys.VK_DIVIDE) then calc_press_op("/") end
             
-            -- Операторы (Основная клавиатура)
-            if isKeyDown(vkeys.VK_SHIFT) and wasKeyPressed(187) then calc_press_op("+") end -- Shift + "="
-            if not isKeyDown(vkeys.VK_SHIFT) and wasKeyPressed(189) then calc_press_op("-") end -- "-"
-            if isKeyDown(vkeys.VK_SHIFT) and wasKeyPressed(56) then calc_press_op("*") end -- Shift + "8"
-            if wasKeyPressed(191) then calc_press_op("/") end -- Слэш "/"
+            if isKeyDown(vkeys.VK_SHIFT) and wasKeyPressed(187) then calc_press_op("+") end
+            if not isKeyDown(vkeys.VK_SHIFT) and wasKeyPressed(189) then calc_press_op("-") end
+            if isKeyDown(vkeys.VK_SHIFT) and wasKeyPressed(56) then calc_press_op("*") end 
+            if wasKeyPressed(191) then calc_press_op("/") end 
             
-            -- Равно (Enter)
             if wasKeyPressed(vkeys.VK_RETURN) then calc_calculate() end
             
-            -- Точка (Numpad и основная)
             if wasKeyPressed(vkeys.VK_DECIMAL) or wasKeyPressed(190) then calc_press_number(".") end
         end
 
@@ -858,7 +911,7 @@ function main()
         cmd_pop()
     end)
 	
-sampRegisterChatCommand("rp", function(param)
+	sampRegisterChatCommand("rp", function(param)
         local lines, action = param:match("^(%d+)%s+(.+)$")
         
         if not lines or not action then
@@ -866,96 +919,41 @@ sampRegisterChatCommand("rp", function(param)
             return
         end
 
-        local api_key = u8:decode(ffi.string(gemini_api_key))
-        if api_key == "" then
-            sampAddChatMessage("{555555}PravikHelper: {FF0000}Ошибка: Не указан API ключ Gemini (Настройки -> Утилиты).", -1)
+        if gemini_api_key == nil or u8:decode(ffi.string(gemini_api_key)) == "" then
+            sampAddChatMessage("{555555}PravikHelper: {FF0000}Ошибка: Не указан API ключ Gemini в настройках (Утилиты).", -1)
             return
         end
 
-        sampAddChatMessage("{555555}PravikHelper: {777777}Gemini генерирует отыгровку, ожидайте...", -1)
-
-        local prompt = string.format([[
-Напиши ровно %s строк РП отыгровки для действия: '%s'.
-Используй только команды /me, /do, /todo.
-Формат ответа должен быть строго таким (пример):
-/do Двигатель заглох.
-/me открыл капот
-/todo Посмотрим, что тут*заглядывая внутрь
-Не пиши никаких пояснений, только сами команды.
-]], lines, action)
-
-        async_gemini_request(u8(prompt), api_key, function(response_text, code)
-            if response_text and code == 200 then
-                local data = decodeJson(response_text)
-                if data and data.candidates and data.candidates[1] and data.candidates[1].content and data.candidates[1].content.parts[1] then
-                    local rp_text = data.candidates[1].content.parts[1].text
-                    
-                    lua_thread.create(function()
-                        for line in rp_text:gmatch("[^\r\n]+") do
-                            -- Ищем саму команду, игнорируя всё до первого слеша
-                            local clean_line = line:match("(/%w+.*)")
-                            
-                            if clean_line then
-                                clean_line = clean_line:gsub("['\"]$", ""):gsub("%s+$", "")
-                                local cmd = clean_line:match("^/(%w+)")
-                                
-                                if cmd == "me" then
-                                    clean_line = clean_line:gsub("%.+$", "")
-                                elseif cmd == "do" then
-                                    if not clean_line:match("%.+$") then
-                                        clean_line = clean_line .. "."
-                                    end
-                                elseif cmd == "todo" then
-                                    clean_line = clean_line:gsub("%s*%*%s*", "*")
-                                end
-                                
-                                if cmd == "me" or cmd == "do" or cmd == "todo" then
-                                    sampSendChat(u8:decode(clean_line))
-                                    wait(2500)
-                                end
-                            end
-                        end
-                        addToast(u8"РП отыгровка успешно завершена!", 2)
-                    end)
-                else
-                    sampAddChatMessage("{555555}PravikHelper: {FF0000}Ошибка: Gemini вернул некорректный ответ.", -1)
-                end
-            else
-                sampAddChatMessage(string.format("{555555}PravikHelper: {FF0000}Ошибка API! Код: %s", tostring(code)), -1)
-                
-                if response_text then
-                    local clean_err = tostring(response_text):gsub('\n', ' '):gsub('\r', '')
-                    local short_err = clean_err:sub(1, 120)
-                    sampAddChatMessage("{555555}Ответ Google: {FF0000}" .. short_err, -1)
-                end
-                
-                print("Gemini Error: " .. tostring(response_text))
-            end
-        end)
+        last_rp_req_lines = lines
+        last_rp_req_action = action
+        
+        if rp_editor_enabled[0] then
+            rp_window_state[0] = true
+        else
+            addToast(u8"Нейросеть генерирует отыгровку...", 2)
+        end
+        
+        generate_rp_from_ai(lines, action)
     end)
 	
 	sampRegisterChatCommand("fill", function()
         lua_thread.create(function()
-            -- 1. Пишем команду в чат
             sampSendChat("/fillcar")
             
-            -- 2. Ждем, пока сервер покажет диалог с выбором машин
             local wait_timer = 0
             while not sampIsDialogActive() and wait_timer < 20 do
                 wait(100)
                 wait_timer = wait_timer + 1
             end
             
-            -- 3. Отправляем ответ на диалог (выбираем первую машину) и гасим его визуально
             if sampIsDialogActive() then
                 local dialogId = sampGetCurrentDialogId()
                 sampSendDialogResponse(dialogId, 1, 0, "")
-                sampCloseCurrentDialogWithButton(0) -- Жестко скрываем самп-окно
+                sampCloseCurrentDialogWithButton(0) 
             end
             
             wait(500)
             
-            -- 4. Отправляем CEF пакет выбора действия: radialMenu.useAction|45
             local packetData = {220, 18, 23, 0, 114, 97, 100, 105, 97, 108, 77, 101, 110, 117, 46, 117, 115, 101, 65, 99, 116, 105, 111, 110, 124, 52, 53, 0, 0, 0, 0}
             local bs = raknetNewBitStream()
             for i = 1, #packetData do 
@@ -966,7 +964,6 @@ sampRegisterChatCommand("rp", function(param)
             
             wait(100)
             
-            -- 5. Отправляем CEF пакет закрытия кругового меню
             local closePacket = {220, 18, 24, 0, 111, 110, 65, 99, 116, 105, 118, 101, 86, 105, 101, 119, 67, 104, 97, 110, 103, 101, 100, 124, 110, 117, 108, 108, 0, 0, 0, 0}
             local bs2 = raknetNewBitStream()
             for i = 1, #closePacket do 
@@ -983,7 +980,7 @@ sampRegisterChatCommand("rp", function(param)
 
     lua_thread.create(function()
         while true do
-            wait(5000)
+            wait(100)
             local current_token = u8:decode(ffi.string(tg_token))
             if tg_enabled[0] and current_token ~= "" and not is_polling then
                 checkTelegramUpdates(current_token)
@@ -1010,8 +1007,8 @@ sampRegisterChatCommand("rp", function(param)
 					if pType == "vc" then
 						async_http_request(vice_api, function(response_text)
 							if response_text and response_text ~= "" then
-								local data = decodeJson(response_text)
-								if data and data.vc then
+								local ok, data = pcall(decodeJson, response_text)
+								if ok and data and data.vc then
 									local t_on, t_max, t_q = 0, 0, 0
 									for _, po in pairs(data.vc) do
 										t_on = t_on + (tonumber(po.online) or 0)
@@ -1178,7 +1175,6 @@ local function RenderTabAuto()
 	imgui.Spacing(); imgui.Separator(); imgui.Spacing()
 	
 	imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> КД НА РП")
-	    -- НОВЫЙ БЛОК:
     imgui.Spacing()
     if imgui.Checkbox(u8"Оверлей КД на экране", fractionrp_overlay_enabled) then saveConfig() end
     if fractionrp_last_time > 0 then
@@ -1342,7 +1338,7 @@ local function RenderTabUtils()
         imgui.EndTooltip() 
     end
     
-    if imgui.Checkbox(u8"Сбив аним чатом", sbiv_chat_enabled) then saveConfig() end
+    if imgui.Checkbox(u8"сбив аним чатом", sbiv_chat_enabled) then saveConfig() end
     if sbiv_chat_enabled[0] then
         imgui.SameLine(170)
 		imgui.PushItemWidth(150)
@@ -1427,26 +1423,29 @@ local function RenderTabTelegram()
                 addToast(u8"Привязка сброшена. Напишите боту снова.", 2)
             end
         end
-		
-		imgui.Spacing(); imgui.Separator(); imgui.Spacing()
-			-- --- НОВЫЙ БЛОК ИИ ---
-		imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> ИСКУСТВЕННЫЙ ИНТЕЛЛЕКТ")
-		imgui.Text(u8"API Ключ:")
-		imgui.PushItemWidth(250)
-		if imgui.InputText("##geminikey", gemini_api_key, ffi.sizeof(gemini_api_key), imgui.InputTextFlags.Password) then saveConfig() end
-		imgui.PopItemWidth()
-		imgui.SameLine()
-		imgui.TextDisabled("?")
-		if imgui.IsItemHovered() then
-			imgui.BeginTooltip()
-			imgui.PushTextWrapPos(350.0)
-			imgui.TextUnformatted(u8"Получить бесплатный ключ можно в Google AI Studio (aistudio.google.com).\nБез него ничего работать не будет")
-			imgui.PopTextWrapPos()
-			imgui.EndTooltip()
-		end
-		imgui.Spacing(); imgui.Separator(); imgui.Spacing()
-		-- ---------------------
     end
+		imgui.Spacing(); imgui.Separator(); imgui.Spacing()
+        imgui.TextColored(imgui.ImVec4(0.70, 0.70, 0.70, 1.00), u8"> ИСКУССТВЕННЫЙ ИНТЕЛЛЕКТ")
+        imgui.Text(u8"API Ключ:")
+        imgui.PushItemWidth(250)
+        if imgui.InputText("##geminikey", gemini_api_key, ffi.sizeof(gemini_api_key), imgui.InputTextFlags.Password) then saveConfig() end
+        imgui.PopItemWidth()
+        imgui.SameLine()
+        imgui.TextDisabled("?")
+        if imgui.IsItemHovered() then
+            imgui.BeginTooltip()
+            imgui.PushTextWrapPos(350.0)
+            imgui.TextUnformatted(u8"Получить бесплатный ключ можно в Google AI Studio (aistudio.google.com).\nБез него ничего работать не будет")
+            imgui.PopTextWrapPos()
+            imgui.EndTooltip()
+        end
+        
+        imgui.Spacing()
+        if imgui.Checkbox(u8"Показывать окно редактирования перед отправкой", rp_editor_enabled) then saveConfig() end
+        imgui.Spacing()
+        imgui.Text(u8"Промпт для нейросети (переменные: {lines} и {action}):")
+        if imgui.InputTextMultiline("##geminiprompt", gemini_prompt, ffi.sizeof(gemini_prompt), imgui.ImVec2(-1, 80)) then saveConfig() end
+        
 end
 
 function cmd_pop()
@@ -1473,9 +1472,83 @@ function cmd_pop()
 end
 
 imgui.OnFrame(
-    function() return main_window_state[0] or calc_window_state[0] or #toasts > 0 or (fractionrp_overlay_enabled[0] and fractionrp_last_time > 0) end,
+-- 1. Добавляем rp_window_state[0] сюда
+    function() return main_window_state[0] or calc_window_state[0] or rp_window_state[0] or #toasts > 0 or (fractionrp_overlay_enabled[0] and fractionrp_last_time > 0) end,
     function(player)
-        player.HideCursor = not (main_window_state[0] or calc_window_state[0])
+        -- 2. И добавляем сюда, чтобы мышка появлялась
+        player.HideCursor = not (main_window_state[0] or calc_window_state[0] or rp_window_state[0])
+        
+        -- ... твой старый код OnFrame (тосты, оверлей КД, главное меню, калькулятор) ...
+
+        -- =========================
+        -- ОКНО РЕДАКТИРОВАНИЯ РП
+        -- =========================
+        if rp_window_state[0] then
+            imgui.SetNextWindowSize(imgui.ImVec2(600, 400), imgui.Cond.FirstUseEver)
+            local sw, sh = getScreenResolution()
+            imgui.SetNextWindowPos(imgui.ImVec2(sw / 2 - 300, sh / 2 - 200), imgui.Cond.FirstUseEver)
+            
+            if imgui.Begin(u8"Редактор РП отыгровки", rp_window_state, imgui.WindowFlags.NoCollapse) then
+                if is_rp_loading then
+                    imgui.TextColored(imgui.ImVec4(1.0, 1.0, 0.0, 1.0), u8"Нейросеть пишет отыгровку... Пожалуйста, подождите.")
+                else
+                    if rp_lines_count == 0 then
+                        imgui.TextColored(imgui.ImVec4(1.0, 0.0, 0.0, 1.0), u8"Не удалось сгенерировать строки.")
+                    else
+                        imgui.TextColored(imgui.ImVec4(0.7, 0.7, 0.7, 1.0), u8"Вы можете отредактировать строки перед отправкой в чат:")
+                        imgui.Spacing()
+                        
+                        -- Рисуем инпуты для каждой сгенерированной строки
+                        for i = 1, rp_lines_count do
+                            imgui.Text(u8("Строка " .. i .. ":"))
+                            imgui.PushItemWidth(-1)
+                            -- Используем уникальный ID (##rpline)
+                            imgui.InputText("##rpline" .. i, rp_lines_data[i], 1024)
+                            imgui.PopItemWidth()
+                        end
+                    end
+                    
+                    imgui.Spacing(); imgui.Separator(); imgui.Spacing()
+                    
+                    -- КНОПКИ УПРАВЛЕНИЯ
+                    if rp_lines_count > 0 and not ffi.string(rp_lines_data[1]):find(u8"Ошибка") then
+                        if imgui.Button(u8"Отыграть в чат", imgui.ImVec2(150, 35)) then
+                            -- Сохраняем текущие значения инпутов
+                            local lines_to_play = {}
+                            for i = 1, rp_lines_count do
+                                table.insert(lines_to_play, u8:decode(ffi.string(rp_lines_data[i])))
+                            end
+                            
+                            -- Запускаем отправку в чат
+                            lua_thread.create(function()
+                                for _, line in ipairs(lines_to_play) do
+                                    if line ~= "" then
+                                        sampSendChat(line)
+                                        wait(2500) -- Задержка между строками
+                                    end
+                                end
+                                addToast(u8"Отыгровка успешно отправлена!", 2)
+                            end)
+                            
+                            -- Закрываем окно
+                            rp_window_state[0] = false
+                        end
+                        imgui.SameLine()
+                    end
+                    
+                    if imgui.Button(u8"Переиграть (Сгенерировать заново)", imgui.ImVec2(270, 35)) then
+                        -- Запрашиваем новые строки с теми же параметрами
+                        generate_rp_from_ai(last_rp_req_lines, last_rp_req_action)
+                    end
+                    
+                    imgui.SameLine()
+                    if imgui.Button(u8"Отмена", imgui.ImVec2(100, 35)) then
+                        rp_window_state[0] = false
+                    end
+                end
+                imgui.End()
+            end
+        end
         
         local current_time = os.clock()
         last_frame_time = current_time
@@ -1483,20 +1556,14 @@ imgui.OnFrame(
         
         RenderToasts(sw, sh, current_time)
 		
-		-- =========================
-        -- ОВЕРЛЕЙ КД НА РП
-        -- =========================
         if fractionrp_overlay_enabled[0] and fractionrp_last_time > 0 then
-            -- 10800 секунд = 3 часа
 			local time_left = (fractionrp_last_time + 10800) - os.time()
             if time_left <= 0 then
                 fractionrp_last_time = 0
                 saveConfig()
                 
-                -- 1. Оповещение в игровой чат
                 sampAddChatMessage("{555555}PravikHelper: {00FF00}КД на РП (3 часа) подошло к концу!", -1)
                 
-                -- 2. Отправка уведомления в Telegram
                 if tg_enabled[0] and tg_chat_id ~= 0 then
                     local safe_text = urlencode(u8("КД на РП (3 часа) прошло!\nМожно снова получить."))
                     local url = string.format("%s/bot%s/sendMessage?chat_id=%s&text=%s", getBaseUrl(), u8:decode(ffi.string(tg_token)), tostring(tg_chat_id), safe_text)
@@ -1510,7 +1577,6 @@ imgui.OnFrame(
                 imgui.SetNextWindowPos(imgui.ImVec2(overlay_pos[0], overlay_pos[1]), imgui.Cond.FirstUseEver)
                 
                 local flags = imgui.WindowFlags.NoTitleBar + imgui.WindowFlags.NoResize + imgui.WindowFlags.AlwaysAutoResize
-                -- Если основное меню закрыто, делаем оверлей прозрачным и некликабельным
                 if not main_window_state[0] then 
                     flags = flags + imgui.WindowFlags.NoInputs 
                     imgui.PushStyleColor(imgui.Col.WindowBg, imgui.ImVec4(0.1, 0.1, 0.1, 0.3))
@@ -1523,7 +1589,6 @@ imgui.OnFrame(
                 if imgui.Begin("##RPCooldownOverlay", nil, flags) then
                     imgui.TextColored(imgui.ImVec4(1.0, 0.8, 0.2, 1.0), u8(string.format("КД на РП: %02d:%02d:%02d", h, m, s)))
                     
-                    -- Если меню открыто, показываем подсказку и сохраняем координаты при перемещении
                     if main_window_state[0] then
                         imgui.TextColored(imgui.ImVec4(0.5, 0.5, 0.5, 1.0), u8"(Можно двигать)")
                         local pos = imgui.GetWindowPos()
@@ -1543,13 +1608,11 @@ imgui.OnFrame(
             imgui.SetNextWindowSize(imgui.ImVec2(630, 435), imgui.Cond.Always)
             imgui.SetNextWindowPos(imgui.ImVec2(sw / 2 - 315, sh / 2 - 220), imgui.Cond.FirstUseEver)
             
-			-- Получаем статус (res) и свой ID (myId)
             local res, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
-            local window_title = "PravikHelper##MainWindow" -- Значение по умолчанию до загрузки сампа
+            local window_title = "PravikHelper##MainWindow" 
             
             if res then
                 local myNick = sampGetPlayerNickname(myId) or "Player"
-                -- Формируем нужный текст: "Nick_Name ID: 222" и прячем тег ##MainWindow
                 window_title = string.format("%s ID: %d##MainWindow", myNick, myId)
             end
 
@@ -1618,12 +1681,9 @@ imgui.OnFrame(
                 imgui.End()
             end
         end
--- =========================
-        -- ОКНО КАЛЬКУЛЯТОРА
-        -- =========================
+
         if calc_window_state[0] then
             
-            -- Независимая обработка клавиатуры
             if not sampIsChatInputActive() and not sampIsDialogActive() and not isSampfuncsConsoleActive() and not imgui.GetIO().WantTextInput then
                 local shift = isKeyDown(vkeys.VK_SHIFT)
                 
@@ -1655,14 +1715,12 @@ imgui.OnFrame(
                 if wasKeyPressed(vkeys.VK_DECIMAL) or (not shift and wasKeyPressed(190)) then calc_press_number(".") end
             end
 
-            -- Независимая отрисовка UI
             imgui.SetNextWindowSize(imgui.ImVec2(340, 520), imgui.Cond.Always) 
             if imgui.Begin(u8"Калькулятор##Calc", calc_window_state, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoCollapse) then
                 
                 local window_width = imgui.GetWindowWidth()
                 local cur_y = imgui.GetCursorPosY()
 
-                -- История слева
                 imgui.SetCursorPos(imgui.ImVec2(15, cur_y))
                 imgui.TextColored(imgui.ImVec4(0.7, 0.7, 0.7, 1.0), u8"[История]")
                 if imgui.IsItemHovered() then
@@ -1677,14 +1735,12 @@ imgui.OnFrame(
                     imgui.EndTooltip()
                 end
                 
-                -- История текущего действия (справа)
                 local history_width = imgui.CalcTextSize(calc_history).x
                 imgui.SetCursorPos(imgui.ImVec2(window_width - history_width - 15, cur_y))
                 imgui.TextColored(imgui.ImVec4(0.5, 0.5, 0.5, 1.0), calc_history)
                 
                 imgui.SetCursorPosY(cur_y + 20)
 
-                -- Основной дисплей
                 if font_large then imgui.PushFont(font_large) end
                 local text_width = imgui.CalcTextSize(calc_display).x
                 imgui.SetCursorPosX(window_width - text_width - 15)
@@ -1799,10 +1855,28 @@ function sampev.onSendSpawn()
         if getCharModel(PLAYER_PED) ~= workSkinId[0] then
             addToast(u8"Я не в форме. Бегу к пикапу...", 1)
             disable_col = true 
-            taskGoStraightToCoord(PLAYER_PED, pickupX, pickupY, pickupZ, 4, -1)
+            
+            local targetX, targetY, targetZ = pickupX, pickupY, pickupZ
+            local px, py, pz = getCharCoordinates(PLAYER_PED)
+            local closestDist = 20.0
+            
+            for i = 0, 4096 do
+                if sampIsPickupDefined(i) then
+                    local res, x, y, z = sampGetPickupCoordinates(i)
+                    if res then
+                        local dist = getDistanceBetweenCoords3d(px, py, pz, x, y, z)
+                        if dist < closestDist then
+                            closestDist = dist
+                            targetX, targetY, targetZ = x, y, z
+                        end
+                    end
+                end
+            end
+            
+            taskGoStraightToCoord(PLAYER_PED, targetX, targetY, targetZ, 4, -1)
             
             local timeout = os.time() + 10 
-            while getDistanceBetweenCoords2d(pickupX, pickupY, getCharCoordinates(PLAYER_PED)) > 1.2 do
+            while getDistanceBetweenCoords2d(targetX, targetY, getCharCoordinates(PLAYER_PED)) > 1.2 do
                 wait(100)
                 if os.time() > timeout then
                     addToast(u8"Ошибка: не смог добежать до пикапа.", 3)
@@ -1823,10 +1897,10 @@ function sampev.onSendSpawn()
             else
                 if autorunaway_enabled[0] then
                     addToast(u8"Переоделся. Отбегаю...", 1)
-                    local targetX, targetY, targetZ = 1500.3088, -1284.8411, 113.8064
-                    taskGoStraightToCoord(PLAYER_PED, targetX, targetY, targetZ, 4, -1)
+                    local runX, runY, runZ = targetX + 3.0, targetY - 3.0, targetZ
+                    taskGoStraightToCoord(PLAYER_PED, runX, runY, runZ, 4, -1)
                     local run_timeout = os.time() + 5 
-                    while getDistanceBetweenCoords2d(targetX, targetY, getCharCoordinates(PLAYER_PED)) > 1.2 do
+                    while getDistanceBetweenCoords2d(runX, runY, getCharCoordinates(PLAYER_PED)) > 1.2 do
                         wait(100); if os.time() > run_timeout then break end
                     end
                     clearCharTasks(PLAYER_PED)
@@ -1860,14 +1934,10 @@ function sampev.onServerMessage(color, text)
     local cleanTextPhone = text:gsub("{......}", "")
     local clean_text = text:gsub("{.-}", "")
 	
-	local clean_text = text:gsub("{.-}", "")
-    
-    -- НОВЫЙ БЛОК: Запуск таймера
     local res_id, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
     if res_id then
         local myNick = sampGetPlayerNickname(myId)
         if myNick then
--- Используем .- чтобы пропустить ник, и обрезаем концовку на случай опечаток сервера
             if clean_text:find("%[Информация%] .- подтвердил участие на мероприяти") then
                 fractionrp_last_time = os.time()
                 saveConfig()
